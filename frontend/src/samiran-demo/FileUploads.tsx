@@ -6,15 +6,27 @@ const FileUpload: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string>("");
 
+  // Allowed file types
+  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "application/pdf"];
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+
+      if (!allowedTypes.includes(selectedFile.type)) {
+        setMessage("❌ Only JPG, PNG, and PDF files are allowed.");
+        setFile(null);
+        return;
+      }
+
+      setFile(selectedFile);
+      setMessage("");
     }
   };
 
   const handleUpload = async () => {
     if (!file) {
-      setMessage("Please select a file first!");
+      setMessage("⚠️ Please select a valid file first!");
       return;
     }
 
@@ -22,37 +34,22 @@ const FileUpload: React.FC = () => {
     formData.append("file", file);
 
     try {
-      const res = await axios.post<{ message: string; filename: string }>(
-        "http://localhost:5000/upload",
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-
-      setMessage(`${res.data.message} (${res.data.filename})`);
+      const res = await axios.post("http://localhost:5000/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMessage("✅ File uploaded successfully!");
     } catch (err) {
-      setMessage("Error uploading file: " + (err as Error).message);
+      console.error(err);
+      setMessage("❌ File upload failed.");
     }
   };
 
   return (
-    <div className="p-4 border rounded shadow w-80 mx-auto text-center">
-      <h2 className="text-lg font-bold mb-2">Upload File</h2>
-
-      <input
-        type="file"
-        accept="image/*,.pdf"
-        capture="environment"
-        onChange={handleFileChange}
-      />
-
-      <button
-        onClick={handleUpload}
-        className="bg-blue-500 text-white px-4 py-2 mt-2 rounded"
-      >
-        Upload
-      </button>
-
-      {message && <p className="mt-2">{message}</p>}
+    <div style={{ textAlign: "center", marginTop: "50px" }}>
+      <h2>Upload File (Only JPG, PNG, PDF)</h2>
+      <input type="file" onChange={handleFileChange} />
+      <button onClick={handleUpload}>Upload</button>
+      <p>{message}</p>
     </div>
   );
 };
