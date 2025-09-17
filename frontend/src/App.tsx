@@ -8,9 +8,12 @@ const App: React.FC = () => {
 
   // Sample data for the table
   const existingRecords = [
-    { id: 1, pattaHolder: "John Doe", village: "Ipamcan", claimType: "IFR", area: "232 ha", status: "Granted" },
-    { id: 2, pattaHolder: "Jane Smith", village: "Balaghat", claimType: "CR", area: "180 ha", status: "Pending" },
-    { id: 3, pattaHolder: "Ram Kumar", village: "Seoni", claimType: "CFR", area: "450 ha", status: "Verified" },
+    { id: 1, pattaHolder: "Masum", village: "Ipamcan", claimType: "IFR", area: "232 ha", status: "Granted" },
+    { id: 2, pattaHolder: "Poushali", village: "Balaghat", claimType: "CR", area: "180 ha", status: "Pending" },
+    { id: 3, pattaHolder: "Samiran", village: "Seoni", claimType: "CFR", area: "450 ha", status: "Verified" },
+     { id: 3, pattaHolder: "Tiasha", village: "Seoni", claimType: "CFR", area: "450 ha", status: "Verified" },
+     { id: 3, pattaHolder: "Soudip", village: "Seoni", claimType: "CFR", area: "450 ha", status: "Verified" },
+
   ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
