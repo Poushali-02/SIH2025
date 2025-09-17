@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import type { ChangeEvent } from "react";
 import axios from "axios";
 
-const FileUpload: React.FC = () => {
+interface FileUploadProps {
+  onOcrComplete: (text: string) => void;
+}
+
+const FileUploads: React.FC<FileUploadProps> = ({ onOcrComplete }) => {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string>("");
 
@@ -34,24 +38,35 @@ const FileUpload: React.FC = () => {
     formData.append("file", file);
 
     try {
-      const res = await axios.post("http://localhost:5000/upload", formData, {
+      const res = await axios.post("http://localhost:5000/ocr", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setMessage("✅ File uploaded successfully!");
+
+      setMessage("✅ File uploaded and OCR completed!");
+      onOcrComplete(res.data.extractedText);
     } catch (err) {
       console.error(err);
-      setMessage("❌ File upload failed.");
+      setMessage("❌ File upload or OCR failed.");
     }
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
+    <div className="" style={{ textAlign: "center", marginTop: "30px" }}>
       <h2>Upload File (Only JPG, PNG, PDF)</h2>
-      <input type="file" onChange={handleFileChange} />
-      <button onClick={handleUpload}>Upload</button>
+
+      <input className="border border-gray-300 rounded p-2 cursor-pointer" type="file" onChange={handleFileChange} accept="image/*,.pdf" />
+
+      <button
+        className="bg-blue-500 text-white rounded cursor-pointer"
+        onClick={handleUpload}
+        style={{ marginLeft: "10px", padding: "6px 12px" }}
+      >
+        Upload & Extract Text
+      </button>
+
       <p>{message}</p>
     </div>
   );
 };
 
-export default FileUpload;
+export default FileUploads;
