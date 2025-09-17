@@ -145,11 +145,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignup }) => {
             </p>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="text-center mt-4 text-xs text-gray-500">
-          <p>© 2025 FRA Claims Portal. All rights reserved.</p>
-        </div>
       </div>
     </div>
   );
