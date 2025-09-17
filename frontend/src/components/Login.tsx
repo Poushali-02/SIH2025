@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, Building } from 'lucide-react';
-import type { User as UserType } from '../types/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LoginProps {
-  onLogin: (user: UserType) => void;
   onSwitchToSignup: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignup }) => {
+const Login: React.FC<LoginProps> = ({ onSwitchToSignup }) => {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,23 +19,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToSignup }) => {
     setIsLoading(true);
     setError('');
 
-    // Simulate API call
-    setTimeout(() => {
-      // Mock authentication - in real app, this would be an API call
-      if (email && password) {
-        const mockUser: UserType = {
-          id: '1',
-          email,
-          name: email.split('@')[0],
-          role: 'district', // Default role, would be determined by backend
-          department: 'Tribal Welfare'
-        };
-        onLogin(mockUser);
-      } else {
-        setError('Please fill in all fields');
-      }
+    // Call the auth context login function
+    const result = await login(email, password);
+    
+    if (!result.success) {
+      setError(result.error || 'Login failed');
       setIsLoading(false);
-    }, 1000);
+    }
+    // If successful, the auth context will handle navigation
   };
 
   return (
