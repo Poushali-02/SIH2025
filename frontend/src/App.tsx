@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
-import type { User } from './types/auth';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -20,16 +19,7 @@ const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // Main App Component
 const AppContent: React.FC = () => {
-  const { login } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
-
-  const handleLogin = (user: User) => {
-    login(user);
-  };
-
-  const handleSignup = (user: User) => {
-    login(user);
-  };
 
   const switchToSignup = () => setIsLogin(false);
   const switchToLogin = () => setIsLogin(true);
@@ -44,9 +34,9 @@ const AppContent: React.FC = () => {
             element={
               <AuthRoute>
                 {isLogin ? (
-                  <Login onLogin={handleLogin} onSwitchToSignup={switchToSignup} />
+                  <Login onSwitchToSignup={switchToSignup} />
                 ) : (
-                  <Signup onSignup={handleSignup} onSwitchToLogin={switchToLogin} />
+                  <Signup onSwitchToLogin={switchToLogin} />
                 )}
               </AuthRoute>
             }

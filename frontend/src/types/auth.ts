@@ -8,7 +8,15 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (user: User) => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (userData: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+    department?: string;
+    phone?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
 }
