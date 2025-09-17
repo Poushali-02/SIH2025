@@ -101,41 +101,6 @@ const Dashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-
-            {/* Map Viewer */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Map Viewer</h2>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Comoto</span>
-                  <button
-                    onClick={() => setIsMapToggled(!isMapToggled)}
-                    className="flex items-center"
-                  >
-                    {isMapToggled ? (
-                      <ToggleRight className="h-6 w-6 text-blue-500" />
-                    ) : (
-                      <ToggleLeft className="h-6 w-6 text-gray-400" />
-                    )}
-                  </button>
-                  <span className="text-sm text-gray-600">doe</span>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-green-200 via-green-100 to-blue-200 rounded-lg h-48 relative">
-                {/* Simulated map with claim boundary */}
-                <div className="absolute inset-4 border-2 border-blue-500 rounded-lg bg-blue-100 bg-opacity-30"></div>
-              </div>
-              <div className="flex gap-4 mt-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm text-gray-600">Claim Boundaries</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-gray-600">Agricultural Map</span>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Right Column */}
@@ -201,6 +166,41 @@ const Dashboard: React.FC = () => {
                   <span className="text-green-800">Priority for Jal Jeevan Mission</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Full-width Map Viewer */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">Map Viewer</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Comoto</span>
+              <button
+                onClick={() => setIsMapToggled(!isMapToggled)}
+                className="flex items-center"
+              >
+                {isMapToggled ? (
+                  <ToggleRight className="h-6 w-6 text-blue-500" />
+                ) : (
+                  <ToggleLeft className="h-6 w-6 text-gray-400" />
+                )}
+              </button>
+              <span className="text-sm text-gray-600">doe</span>
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-green-200 via-green-100 to-blue-200 rounded-lg h-48 relative">
+            {/* Simulated map with claim boundary */}
+            <div className="absolute inset-4 border-2 border-blue-500 rounded-lg bg-blue-100 bg-opacity-30"></div>
+          </div>
+          <div className="flex gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <span className="text-sm text-gray-600">Claim Boundaries</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-gray-600">Agricultural Map</span>
             </div>
           </div>
         </div>
