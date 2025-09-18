@@ -4,3 +4,5 @@ backend/.env
 backend/node_modules/@google/generative-ai/LICENSE
 backend/node_modules/@google/generative-ai/package.json
 backend/node_modules/@google/generative-ai/README.md
+.venv/
+Model/__pycache__/
