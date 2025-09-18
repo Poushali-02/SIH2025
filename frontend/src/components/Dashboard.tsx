@@ -11,6 +11,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { getPrediction, type PredictionResponse } from "../services/predictionService";
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -19,6 +20,9 @@ const Dashboard: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [claimType, setClaimType] = useState("IFR");
   const [isMapToggled, setIsMapToggled] = useState(true);
+  const [address, setAddress] = useState("");
+  const [predictions, setPredictions] = useState<PredictionResponse | null>(null);
+  const [predictionLoading, setPredictionLoading] = useState(false);
 
   // Allowed file types
   const allowedTypes = [
@@ -107,6 +111,25 @@ const Dashboard: React.FC = () => {
     } catch (err) {
       console.error(err);
       setMessage("❌ File upload or OCR failed.");
+    }
+  };
+
+  const handlePrediction = async () => {
+    if (!address.trim()) {
+      setMessage("⚠️ Please enter an address for prediction!");
+      return;
+    }
+
+    setPredictionLoading(true);
+    try {
+      const result = await getPrediction(address);
+      setPredictions(result);
+      setMessage("✅ Prediction completed!");
+    } catch (error) {
+      console.error("Prediction error:", error);
+      setMessage("❌ Prediction failed. Please try again.");
+    } finally {
+      setPredictionLoading(false);
     }
   };
 
@@ -294,17 +317,61 @@ const Dashboard: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 AI Recommendation
               </h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter Address for Prediction
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter address (e.g., MG Road, Bangalore, Karnataka, India)"
+                  />
+                  <button
+                    onClick={handlePrediction}
+                    disabled={predictionLoading}
+                    className={`bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors ${
+                      predictionLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {predictionLoading ? "Predicting..." : "Predict"}
+                  </button>
+                </div>
+              </div>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-green-800">Eligible for PM-Kisan</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-green-800">
-                    Priority for Jal Jeevan Mission
-                  </span>
-                </div>
+                {predictions ? (
+                  <>
+                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="text-green-800">
+                        PM-Kisan Eligibility: {predictions.predicted_class_pmk === 1 ? "Eligible" : "Not Eligible"} 
+                        ({(predictions.predicted_probability_pmk * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="text-green-800">
+                        Priority for Jal Jeevan Mission: {predictions.predicted_class_pmjvm === 1 ? "High Priority" : "Low Priority"} 
+                        ({(predictions.predicted_probability_pmjvm * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-yellow-500" />
+                      <span className="text-yellow-800">
+                        JJM Eligibility: {predictions.predicted_class_jjm === 1 ? "Eligible" : "Not Eligible"} 
+                        ({(predictions.predicted_probability_jjm * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-600">Enter an address above to get AI recommendations</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
