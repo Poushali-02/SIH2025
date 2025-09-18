@@ -8,11 +8,18 @@ from sklearn.pipeline import Pipeline
 from sklearn.compose import _column_transformer
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 load_dotenv()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Request model
 class LocationRequest(BaseModel):
     address: str

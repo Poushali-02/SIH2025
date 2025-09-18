@@ -7,3 +7,5 @@ backend/node_modules/@google/generative-ai/README.md
 .venv/
 Model/__pycache__/
 backend/package-lock.json
+backend/uploads/
+backend/.pytest_cache/
