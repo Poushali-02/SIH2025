@@ -45,30 +45,53 @@ type LValues = {
 
 // LULC (Land Use Land Cover) categories mapping
 const lulcCategories = {
-  l01: { name: "Built Up (Urban)", color: "#FF0000", visible: true },         // Red
-  l02: { name: "Built Up (Rural)", color: "#FF7777", visible: true },         // Light Red
-  l03: { name: "Mining", color: "#A0522D", visible: true },                   // Brown
-  l04: { name: "Agriculture (Cropland)", color: "#FFFF00", visible: true },   // Yellow
-  l05: { name: "Agriculture (Plantation)", color: "#7CFC00", visible: true }, // Lawn Green
-  l06: { name: "Agriculture (Fallow)", color: "#F4A460", visible: true },     // Sandy Brown
-  l07: { name: "Wetland (Inland)", color: "#00FFFF", visible: true },         // Cyan
-  l08: { name: "Wetland (Coastal)", color: "#00CED1", visible: true },        // Dark Turquoise
-  l09: { name: "Forest (Evergreen)", color: "#006400", visible: true },       // Dark Green
-  l10: { name: "Forest (Deciduous)", color: "#228B22", visible: true },       // Forest Green
-  l11: { name: "Forest (Shrub)", color: "#90EE90", visible: true },           // Light Green
-  l12: { name: "Forest (Swamp)", color: "#008080", visible: true },           // Teal
-  l13: { name: "Grassland", color: "#ADFF2F", visible: true },                // Green Yellow
-  l14: { name: "Wasteland", color: "#D2B48C", visible: true },                // Tan
-  l15: { name: "Barren/Unculturable/Gullied", color: "#DEB887", visible: true }, // Burlywood
-  l16: { name: "Snow and Glaciers", color: "#FFFFFF", visible: true },        // White
-  l17: { name: "Water Bodies", color: "#0000FF", visible: true },             // Blue
-  l18: { name: "Others", color: "#808080", visible: true },                   // Gray
-  l19: { name: "Cloud Cover", color: "#DCDCDC", visible: true },              // Gainsboro
-  l20: { name: "Prelims Data", color: "#F0F8FF", visible: true },             // Alice Blue
-  l21: { name: "Reserved", color: "#E6E6FA", visible: true },                 // Lavender
-  l22: { name: "Reserved", color: "#D8BFD8", visible: true },                 // Thistle
-  l23: { name: "Reserved", color: "#DDA0DD", visible: true },                 // Plum
-  l24: { name: "Reserved", color: "#EE82EE", visible: true }                  // Violet
+  // Built-up Areas
+  l01: { name: "Builtup, Urban", color: "#FF0000", visible: true, group: 'Built-up' },
+  l02: { name: "Builtup, Rural", color: "#FF5555", visible: true, group: 'Built-up' },
+  l03: { name: "Builtup, Mining", color: "#A02020", visible: true, group: 'Built-up' },
+  
+  // Agriculture Areas
+  l04: { name: "Agriculture, Crop land", color: "#FFFF00", visible: true, group: 'Agriculture' },
+  l05: { name: "Agriculture, Plantation", color: "#AAFF00", visible: true, group: 'Agriculture' },
+  l06: { name: "Agriculture, Fallow", color: "#D2CC55", visible: true, group: 'Agriculture' },
+  l07: { name: "Agriculture, Current Shifting Cultivation", color: "#CCAA22", visible: true, group: 'Agriculture' },
+  
+  // Forest Areas
+  l08: { name: "Forest, Evergreen/Semi evergreen", color: "#006400", visible: true, group: 'Forest' },
+  l09: { name: "Forest, Deciduous", color: "#228B22", visible: true, group: 'Forest' },
+  l10: { name: "Forest, Forest Plantation", color: "#77DD77", visible: true, group: 'Forest' },
+  l11: { name: "Forest, Scrub Forest", color: "#AADD66", visible: true, group: 'Forest' },
+  l12: { name: "Forest, Swamp/Mangroves", color: "#00A36C", visible: true, group: 'Forest' },
+  
+  // Grasslands
+  l13: { name: "Grass/Grazing", color: "#98FB98", visible: true, group: 'Other Natural' },
+  
+  // Barren/Wastelands
+  l14: { name: "Barren/Wastelands, Salt Affected land", color: "#E0E0E0", visible: true, group: 'Other Natural' },
+  l15: { name: "Barren/Wastelands, Gullied/Ravinous Land", color: "#D2B48C", visible: true, group: 'Other Natural' },
+  l16: { name: "Barren/Wastelands, Scrub land", color: "#DEB887", visible: true, group: 'Other Natural' },
+  l17: { name: "Barren/Wastelands, Sandy area", color: "#F5DEB3", visible: true, group: 'Other Natural' },
+  l18: { name: "Barren/Wastelands, Barren rocky", color: "#A9A9A9", visible: true, group: 'Other Natural' },
+  l19: { name: "Barren/Wastelands, Rann", color: "#C0C0C0", visible: true, group: 'Other Natural' },
+  
+  // Wetlands/Water Bodies
+  l20: { name: "Wetlands/Water Bodies, Inland Wetland", color: "#87CEEB", visible: true, group: 'Wetland' },
+  l21: { name: "Wetlands/Water Bodies, Coastal Wetland", color: "#00BFFF", visible: true, group: 'Wetland' },
+  l22: { name: "Wetlands/Water Bodies, River/Stream/canals", color: "#1E90FF", visible: true, group: 'Wetland' },
+  l23: { name: "Wetlands/Water Bodies, Reservoir/Lakes/Ponds", color: "#0000FF", visible: true, group: 'Wetland' },
+  
+  // Snow and Glacier
+  l24: { name: "Snow and Glacier", color: "#FFFFFF", visible: true, group: 'Misc' }
+};
+
+// Category groupings for UI organization
+const categoryGroups = {
+  'Built-up': ['l01', 'l02', 'l03'],
+  'Agriculture': ['l04', 'l05', 'l06', 'l07'],
+  'Forest': ['l08', 'l09', 'l10', 'l11', 'l12'],
+  'Other Natural': ['l13', 'l14', 'l15', 'l16', 'l17', 'l18', 'l19'],
+  'Wetland': ['l20', 'l21', 'l22', 'l23'],
+  'Misc': ['l24']
 };
 
 type ThematicData = { [areaId: string]: LValues };
@@ -678,30 +701,35 @@ const hasNonZeroLValues = (values: LValues | null | undefined) => {
 
 // Helper function to find dominant land use type
 const findDominantLandUseType = (values: LValues, visibleLayers?: Record<string, boolean>): string => {
-  let maxKey = 'l01'; // Default to built-up urban
+  let maxKey = '';
   let maxValue = 0;
   let foundVisibleLayer = false;
   
   // Check all lValues to find the maximum
   Object.entries(values).forEach(([key, value]) => {
+    // Skip if key doesn't start with 'l' (not a land use type)
+    if (!key.startsWith('l')) return;
+    
     // Skip if layer is not visible
-    if (visibleLayers && !visibleLayers[key]) return;
+    if (visibleLayers && !visibleLayers[key]) {
+      return;
+    }
     
     // Clean and parse the value
     const numValue = typeof value === 'number' ? value : parseFloat(String(value).trim() || '0');
     
     if (numValue > 0) {
       foundVisibleLayer = true;
-    }
-    
-    if (numValue > maxValue) {
-      maxValue = numValue;
-      maxKey = key;
+      
+      if (numValue > maxValue) {
+        maxValue = numValue;
+        maxKey = key;
+      }
     }
   });
   
   // If no dominant visible layer was found (all values are 0 or layers are hidden),
-  // return null to indicate no visible layer
+  // return empty string to indicate no visible layer
   return foundVisibleLayer ? maxKey : '';
 };
 
@@ -973,8 +1001,6 @@ const styleFeature = (
   visibleLayers?: Record<string, boolean>,
   selectedDistrict?: District | null
 ): L.PathOptions => {
-  console.log("Styling feature with visibleLayers:", visibleLayers); // Debug log
-  
   if (!thematicData) {
     // Enhanced default styling with thicker border, higher contrast for better visibility
     return { 
@@ -995,12 +1021,9 @@ const styleFeature = (
                 feature.properties?.district_code ||
                 (selectedDistrict && selectedDistrict.code);
   
-  console.log("Using areaId:", areaId); // Debug log
-  
   const lValues = areaId ? thematicData[areaId] : null;
   
   if (!lValues) {
-    console.log("No lValues found for areaId:", areaId);
     return { 
       fillColor: "#f0f0f0", 
       weight: 3, 
@@ -1010,24 +1033,27 @@ const styleFeature = (
       dashArray: "3, 5"
     };
   }
-  
-  console.log("lValues for area:", lValues); // Debug log
 
   if (hasNonZeroLValues(lValues)) {
     // Check if any visible layers have non-zero values
     let hasVisibleNonZeroLayers = false;
+    let visibleLayersWithValues: string[] = [];
+    
     if (visibleLayers) {
       Object.entries(lValues).forEach(([key, value]) => {
+        if (!key.startsWith('l')) return;
+        
         const numValue = typeof value === 'number' ? value : parseFloat(String(value).trim() || '0');
+        
         if (visibleLayers[key] && numValue > 0) {
           hasVisibleNonZeroLayers = true;
+          visibleLayersWithValues.push(key);
         }
       });
     }
     
     // If no visible layers have non-zero values, return neutral style
     if (visibleLayers && !hasVisibleNonZeroLayers) {
-      console.log("No visible layers with non-zero values");
       return {
         fillColor: "#f0f0f0", 
         weight: 3, 
@@ -1040,11 +1066,9 @@ const styleFeature = (
     
     // Find dominant land use type, respecting visible layers
     const dominantType = findDominantLandUseType(lValues, visibleLayers);
-    console.log("Dominant type:", dominantType); // Debug log
     
     // If no visible layers or dominant type is empty, return a neutral style
     if (!dominantType) {
-      console.log("No dominant type found");
       return {
         fillColor: "#f0f0f0", 
         weight: 3, 
@@ -1056,8 +1080,8 @@ const styleFeature = (
     }
     
     // Use the corresponding color from LULC categories with enhanced styling
-    const color = lulcCategories[dominantType as keyof typeof lulcCategories]?.color || "#f0f0f0";
-    console.log("Using color:", color, "for dominant type:", dominantType);
+    const category = lulcCategories[dominantType as keyof typeof lulcCategories];
+    const color = category?.color || "#f0f0f0";
     
     return {
       fillColor: color,
@@ -1068,6 +1092,16 @@ const styleFeature = (
       dashArray: "",
     };
   }
+  
+  // Default style for areas with no LULC data or all zeros
+  return { 
+    fillColor: "#f0f0f0", 
+    weight: 3, 
+    fillOpacity: 0.3, 
+    color: "#333333",
+    opacity: 0.8,
+    dashArray: "3, 5"
+  };
   
   // Enhanced default style for areas with no data - more visible
   return { 
@@ -1175,15 +1209,7 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({ thematicData, onLay
       </div>
     `;
     
-    // Group categories for better organization
-    const categoryGroups = {
-      'Built-up': ['l01', 'l02', 'l03'],
-      'Agriculture': ['l04', 'l05', 'l06'],
-      'Wetland': ['l07', 'l08'],
-      'Forest': ['l09', 'l10', 'l11', 'l12'],
-      'Other Natural': ['l13', 'l14', 'l15', 'l16', 'l17'],
-      'Misc': ['l18', 'l19', 'l20', 'l21', 'l22', 'l23', 'l24']
-    };
+    // Using the globally defined categoryGroups for consistency
     
     // Create layer toggles grouped by category
     Object.entries(categoryGroups).forEach(([groupName, layerIds]) => {
@@ -1238,7 +1264,6 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({ thematicData, onLay
             
             checkbox.addEventListener('change', (e) => {
               const isVisible = (e.target as HTMLInputElement).checked;
-              console.log(`Layer ${layerId} checkbox changed to ${isVisible}`);
               
               // Update status indicator
               const statusIndicator = document.getElementById(`lulc-status-${layerId}`);
@@ -1249,13 +1274,6 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({ thematicData, onLay
               // Update state and notify parent
               setVisibleLayers(prev => ({...prev, [layerId]: isVisible}));
               onLayerToggle(layerId, isVisible);
-              
-              // Force re-render of the map
-              setTimeout(() => {
-                // This is a hack to force React to re-render the GeoJSON component
-                map.fireEvent('moveend');
-                map.invalidateSize();
-              }, 10);
             });
             
             row.appendChild(checkbox);
@@ -1368,15 +1386,7 @@ const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
     
     let labels = ['<strong style="font-size:14px;">LULC Categories</strong><hr style="margin:8px 0;border:none;border-top:1px solid #ccc;">'];
     
-    // Group categories for better organization
-    const categoryGroups = {
-      'Built-up': ['l01', 'l02', 'l03'],
-      'Agriculture': ['l04', 'l05', 'l06'],
-      'Wetland': ['l07', 'l08'],
-      'Forest': ['l09', 'l10', 'l11', 'l12'],
-      'Other Natural': ['l13', 'l14', 'l15', 'l16', 'l17'],
-      'Misc': ['l18', 'l19', 'l20', 'l21', 'l22', 'l23', 'l24']
-    };
+    // Using the globally defined categoryGroups for consistency
     
     // If we have thematic data, find which categories are present
     const presentLandUseTypes = new Set<string>();
@@ -1523,6 +1533,7 @@ const LeafletBhuvanMap: React.FC = () => {
     });
     
     // Force a re-render of the GeoJSON by incrementing the trigger
+    // This is crucial to make the styleFeature function run again with the updated visibility
     setLayerUpdateTrigger(prev => prev + 1);
   }, []);
 
