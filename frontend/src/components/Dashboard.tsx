@@ -102,15 +102,28 @@ const Dashboard: React.FC = () => {
     formData.append("file", file);
 
     try {
+      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
+      
       const res = await axios.post("http://localhost:5000/ocr", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 30000, 
       });
 
+      console.log("Upload response:", res.data);
       setMessage("✅ File uploaded and OCR completed!");
       setOcrText(res.data.extractedText);
-    } catch (err) {
-      console.error(err);
-      setMessage("❌ File upload or OCR failed.");
+    } catch (err: any) {
+      console.error("Upload error details:", err);
+      if (err.response) {
+        console.error("Response status:", err.response.status);
+        console.error("Response data:", err.response.data);
+        setMessage(`❌ ${err.response.data?.error || "File upload or OCR failed."}`);
+      } else if (err.request) {
+        console.error("No response received:", err.request);
+        setMessage("❌ No response from server. Check if backend is running.");
+      } else {
+        console.error("Request setup error:", err.message);
+        setMessage("❌ Request failed. Please try again.");
+      }
     }
   };
 
