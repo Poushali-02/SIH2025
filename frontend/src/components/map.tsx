@@ -689,27 +689,211 @@ const findDominantLandUseType = (values: LValues): string => {
   return maxKey;
 };
 
+// Process LULC response from Bhuvan API
+const processLulcResponse = (data: any): ThematicData => {
+  const thematicData: ThematicData = {};
+  
+  // Handle different possible response formats from the Bhuvan API
+  
+  // Format 1: Direct object with LULC code properties
+  if (data && typeof data === 'object' && !Array.isArray(data) && !data.features) {
+    console.log("Processing direct LULC data format");
+    
+    // Use district code as area ID if available, otherwise use a default
+    const areaId = data.district_code || data.state_code || "area1";
+    
+    // Check if we have any LULC data in the expected format (L01, L02, etc.)
+    const lValues: LValues = {
+      l01: parseFloat(data.L01 || data.l01 || 0),
+      l02: parseFloat(data.L02 || data.l02 || 0),
+      l03: parseFloat(data.L03 || data.l03 || 0),
+      l04: parseFloat(data.L04 || data.l04 || 0),
+      l05: parseFloat(data.L05 || data.l05 || 0),
+      l06: parseFloat(data.L06 || data.l06 || 0),
+      l07: parseFloat(data.L07 || data.l07 || 0),
+      l08: parseFloat(data.L08 || data.l08 || 0),
+      l09: parseFloat(data.L09 || data.l09 || 0),
+      l10: parseFloat(data.L10 || data.l10 || 0),
+      l11: parseFloat(data.L11 || data.l11 || 0),
+      l12: parseFloat(data.L12 || data.l12 || 0),
+      l13: parseFloat(data.L13 || data.l13 || 0),
+      l14: parseFloat(data.L14 || data.l14 || 0),
+      l15: parseFloat(data.L15 || data.l15 || 0),
+      l16: parseFloat(data.L16 || data.l16 || 0),
+      l17: parseFloat(data.L17 || data.l17 || 0),
+      l18: parseFloat(data.L18 || data.l18 || 0),
+      l19: parseFloat(data.L19 || data.l19 || 0),
+      l20: parseFloat(data.L20 || data.l20 || 0),
+      l21: parseFloat(data.L21 || data.l21 || 0),
+      l22: parseFloat(data.L22 || data.l22 || 0),
+      l23: parseFloat(data.L23 || data.l23 || 0),
+      l24: parseFloat(data.L24 || data.l24 || 0),
+    };
+    
+    thematicData[areaId] = lValues;
+    return thematicData;
+  }
+  
+  // Format 2: GeoJSON format with features array
+  if (data && data.features && Array.isArray(data.features)) {
+    console.log("Processing GeoJSON LULC data format");
+    
+    // Process each feature (typically just one for the district)
+    data.features.forEach((feature: any) => {
+      if (feature.properties) {
+        // Use feature ID if available, or create one
+        const areaId = feature.properties.id || feature.id || `area${Object.keys(thematicData).length + 1}`;
+        
+        // Convert Bhuvan's format to our LValues format
+        const lValues: LValues = {
+          l01: parseFloat(feature.properties.L01 || feature.properties.l01 || 0),
+          l02: parseFloat(feature.properties.L02 || feature.properties.l02 || 0),
+          l03: parseFloat(feature.properties.L03 || feature.properties.l03 || 0),
+          l04: parseFloat(feature.properties.L04 || feature.properties.l04 || 0),
+          l05: parseFloat(feature.properties.L05 || feature.properties.l05 || 0),
+          l06: parseFloat(feature.properties.L06 || feature.properties.l06 || 0),
+          l07: parseFloat(feature.properties.L07 || feature.properties.l07 || 0),
+          l08: parseFloat(feature.properties.L08 || feature.properties.l08 || 0),
+          l09: parseFloat(feature.properties.L09 || feature.properties.l09 || 0),
+          l10: parseFloat(feature.properties.L10 || feature.properties.l10 || 0),
+          l11: parseFloat(feature.properties.L11 || feature.properties.l11 || 0),
+          l12: parseFloat(feature.properties.L12 || feature.properties.l12 || 0),
+          l13: parseFloat(feature.properties.L13 || feature.properties.l13 || 0),
+          l14: parseFloat(feature.properties.L14 || feature.properties.l14 || 0),
+          l15: parseFloat(feature.properties.L15 || feature.properties.l15 || 0),
+          l16: parseFloat(feature.properties.L16 || feature.properties.l16 || 0),
+          l17: parseFloat(feature.properties.L17 || feature.properties.l17 || 0),
+          l18: parseFloat(feature.properties.L18 || feature.properties.l18 || 0),
+          l19: parseFloat(feature.properties.L19 || feature.properties.l19 || 0),
+          l20: parseFloat(feature.properties.L20 || feature.properties.l20 || 0),
+          l21: parseFloat(feature.properties.L21 || feature.properties.l21 || 0),
+          l22: parseFloat(feature.properties.L22 || feature.properties.l22 || 0),
+          l23: parseFloat(feature.properties.L23 || feature.properties.l23 || 0),
+          l24: parseFloat(feature.properties.L24 || feature.properties.l24 || 0),
+        };
+        
+        thematicData[areaId] = lValues;
+      }
+    });
+  }
+  
+  // Format 3: Array of objects with LULC data
+  if (Array.isArray(data)) {
+    console.log("Processing array LULC data format");
+    
+    data.forEach((item, index) => {
+      if (typeof item === 'object' && item !== null) {
+        const areaId = item.district_code || item.state_code || `area${index + 1}`;
+        
+        const lValues: LValues = {
+          l01: parseFloat(item.L01 || item.l01 || 0),
+          l02: parseFloat(item.L02 || item.l02 || 0),
+          l03: parseFloat(item.L03 || item.l03 || 0),
+          l04: parseFloat(item.L04 || item.l04 || 0),
+          l05: parseFloat(item.L05 || item.l05 || 0),
+          l06: parseFloat(item.L06 || item.l06 || 0),
+          l07: parseFloat(item.L07 || item.l07 || 0),
+          l08: parseFloat(item.L08 || item.l08 || 0),
+          l09: parseFloat(item.L09 || item.l09 || 0),
+          l10: parseFloat(item.L10 || item.l10 || 0),
+          l11: parseFloat(item.L11 || item.l11 || 0),
+          l12: parseFloat(item.L12 || item.l12 || 0),
+          l13: parseFloat(item.L13 || item.l13 || 0),
+          l14: parseFloat(item.L14 || item.l14 || 0),
+          l15: parseFloat(item.L15 || item.l15 || 0),
+          l16: parseFloat(item.L16 || item.l16 || 0),
+          l17: parseFloat(item.L17 || item.l17 || 0),
+          l18: parseFloat(item.L18 || item.l18 || 0),
+          l19: parseFloat(item.L19 || item.l19 || 0),
+          l20: parseFloat(item.L20 || item.l20 || 0),
+          l21: parseFloat(item.L21 || item.l21 || 0),
+          l22: parseFloat(item.L22 || item.l22 || 0),
+          l23: parseFloat(item.L23 || item.l23 || 0),
+          l24: parseFloat(item.L24 || item.l24 || 0),
+        };
+        
+        thematicData[areaId] = lValues;
+      }
+    });
+  }
+  
+  // Format 4: String response that needs to be parsed
+  if (typeof data === 'string') {
+    console.log("Processing string LULC data format");
+    try {
+      // Try to parse as JSON
+      const parsedData = JSON.parse(data);
+      // Call ourselves recursively with the parsed data
+      return processLulcResponse(parsedData);
+    } catch (error) {
+      console.error("Failed to parse string response as JSON:", error);
+    }
+  }
+  
+  // If we couldn't find valid LULC data in any format, log an error
+  if (Object.keys(thematicData).length === 0) {
+    console.error("Could not extract LULC data from response:", data);
+  } else {
+    console.log(`Successfully extracted LULC data for ${Object.keys(thematicData).length} areas`);
+  }
+  
+  return thematicData;
+};
+
 async function fetchDistrictGeoJSON(districtCode: string): Promise<any> {
   return await fetch(`geojson/district_${districtCode}.json`).then((res) =>
     res.json()
   );
 }
 
-// Get thematic data from API
 async function fetchThematicData(districtCode: string): Promise<ThematicData> {
   try {
-    // Try to fetch from the backend proxy first (preferred approach to avoid CORS)
+    // First try using the backend proxy (this avoids CORS issues)
+    console.log(`Fetching data via proxy for district code: ${districtCode}`);
     const response = await fetch(
-      `/api/lulc?district=${districtCode}`
+      `/api/lulc?distcode=${districtCode}&year=1112`
     );
-    return await response.json();
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("Data received from API:", data);
+    
+    // Process the response to convert it to our expected format
+    return processLulcResponse(data);
   } catch (error) {
-    // Fallback to direct API call (may face CORS issues)
-    console.error("Error using proxy, trying direct API:", error);
-    const response = await fetch(
-      `https://bhuvan.nrsc.gov.in/api/thematic/l01-l24?district=${districtCode}`
-    );
-    return await response.json();
+    console.error("Error using proxy:", error);
+    
+    try {
+      // If proxy fails, try direct API with proper CORS headers
+      // Note: This will likely still fail due to CORS unless the API supports it
+      console.log("Trying direct API (may fail due to CORS)");
+      
+      const headers = new Headers({
+        'Content-Type': 'application/x-www-form-urlencoded'
+      });
+      
+      const response = await fetch(
+        `https://bhuvan-app1.nrsc.gov.in/api/lulc/curljson.php?distcode=${districtCode}&year=1112`,
+        {
+          method: 'GET',
+          headers: headers,
+          mode: 'cors'  // This might still fail due to CORS policy
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Direct API HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return processLulcResponse(data);
+    } catch (directError) {
+      console.error("Direct API also failed:", directError);
+      return {}; // Return empty data as fallback
+    }
   }
 }
 
