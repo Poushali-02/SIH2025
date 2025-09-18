@@ -10,7 +10,7 @@ import jwt from "jsonwebtoken";
 import helmet from "helmet";
 import User from "./models/User.js";
 
-dotenv.config();
+dotenv.config({ path: '../.env' });
 
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/fra_portal')
 .then(() => console.log('✅ MongoDB connected'))
