@@ -1,0 +1,50 @@
+/* LULC Map Component Styles */
+
+/* District tooltips */
+.district-tooltip {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #333;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Make legend and layer controls stand out */
+.info.legend,
+.info.layer-control {
+  background: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2) !important;
+  border-radius: 6px !important;
+}
+
+/* Override default leaflet map styles */
+.leaflet-container {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Improved popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: 6px;
+  padding: 0;
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+  line-height: 1.5;
+}
+
+.leaflet-popup-content h4 {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+  margin-top: 0;
+  color: #333;
+}
+
+/* Style for active district */
+.active-district {
+  stroke-width: 4px !important;
+  stroke: #000 !important;
+  stroke-opacity: 0.9 !important;
+}

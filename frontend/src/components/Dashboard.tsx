@@ -3,8 +3,6 @@ import axios from "axios";
 import {
   Upload,
   CheckCircle,
-  ToggleLeft,
-  ToggleRight,
   LogOut,
   User,
   X,
@@ -23,7 +21,6 @@ const Dashboard: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string>("");
   const [claimType, setClaimType] = useState("IFR");
-  const [isMapToggled, setIsMapToggled] = useState(true);
   const [address, setAddress] = useState("");
   const [predictions, setPredictions] = useState<PredictionResponse | null>(null);
   const [predictionLoading, setPredictionLoading] = useState(false);
@@ -465,34 +462,10 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">Map Viewer</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">LULC Map</span>
-              <button
-                onClick={() => setIsMapToggled(!isMapToggled)}
-                className="flex items-center"
-              >
-                {isMapToggled ? (
-                  <ToggleRight className="h-6 w-6 text-blue-500" />
-                ) : (
-                  <ToggleLeft className="h-6 w-6 text-gray-400" />
-                )}
-              </button>
-              <span className="text-sm text-gray-600">Claim Map</span>
-            </div>
           </div>
           <div className="rounded-lg" style={{ height: "500px", width: "100%" }}>
             {/* Map integration */}
-            {isMapToggled && (
-              <LeafletBhuvanMap />
-            )}
-            {!isMapToggled && (
-              <div className="bg-gradient-to-br from-green-200 via-green-100 to-blue-200 rounded-lg h-full relative">
-                {/* Simulated claim map with boundary */}
-                <div className="absolute inset-4 border-2 border-blue-500 rounded-lg bg-blue-100 bg-opacity-30 flex items-center justify-center">
-                  <span className="text-blue-800 font-medium">Claim Boundary Map View</span>
-                </div>
-              </div>
-            )}
+            <LeafletBhuvanMap />
           </div>
           <div className="flex gap-4 mt-4">
             <div className="flex items-center gap-2">

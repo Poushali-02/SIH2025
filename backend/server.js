@@ -4,6 +4,7 @@ import cors from "cors";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
+import axios from "axios";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config({ path: '../.env' });
@@ -101,6 +102,102 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: err.message });
   }
   next();
+});
+
+// ------------------- LULC API Proxy -------------------
+app.get("/api/lulc", async (req, res) => {
+  try {
+    const { distcode, statcode, year = '1112', token = '' } = req.query;
+    
+    if (!distcode && !statcode) {
+      return res.status(400).json({ error: "Either district code or state code is required" });
+    }
+    
+    console.log(`Proxying request to Bhuvan API with params:`, req.query);
+    
+    // Use the correct Bhuvan API URL as per documentation
+    const apiUrl = 'https://bhuvan-app1.nrsc.gov.in/api/lulc/curljson.php';
+    
+    // Build query parameters
+    const queryParams = new URLSearchParams();
+    if (distcode) queryParams.append('distcode', distcode);
+    if (statcode) queryParams.append('statcode', statcode);
+    if (year) queryParams.append('year', year);
+    if (token) queryParams.append('token', token);
+    
+    const fullUrl = `${apiUrl}?${queryParams.toString()}`;
+    console.log(`Making request to: ${fullUrl}`);
+    
+    // Proxy the request to the Bhuvan API with correct headers
+    const response = await axios.get(fullUrl, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': 'https://bhuvan-app1.nrsc.gov.in/',
+        'Origin': 'https://bhuvan-app1.nrsc.gov.in'
+      }
+    });
+    
+    console.log('Bhuvan API response status:', response.status);
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error fetching LULC data:", error.message);
+    if (error.response) {
+      console.error("API error details:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      });
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to fetch LULC data", 
+      message: error.message,
+      details: error.response ? error.response.data : null
+    });
+  }
+});
+
+// ------------------- OpenStreetMap API Proxy -------------------
+app.get("/api/osm/search", async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: "Query parameter 'q' is required" });
+    }
+    
+    console.log(`Proxying request to OpenStreetMap API with query:`, q);
+    
+    const url = `https://nominatim.openstreetmap.org/search?format=geojson&polygon_geojson=1&q=${encodeURIComponent(q)}`;
+    
+    // Add a delay to respect OpenStreetMap's usage policy (max 1 request per second)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'FRAClaimsPortal/1.0',
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('OpenStreetMap API response status:', response.status);
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error fetching OpenStreetMap data:", error.message);
+    if (error.response) {
+      console.error("API error details:", {
+        status: error.response.status,
+        statusText: error.response.statusText
+      });
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to fetch OpenStreetMap data", 
+      message: error.message
+    });
+  }
 });
 
 // ------------------- Start Server -------------------
