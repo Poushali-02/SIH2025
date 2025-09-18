@@ -362,6 +362,12 @@ const Dashboard: React.FC = () => {
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !predictionLoading && address.trim()) {
+                        e.preventDefault();
+                        handlePrediction();
+                      }
+                    }}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter address (e.g., MG Road, Bangalore, Karnataka, India)"
                   />

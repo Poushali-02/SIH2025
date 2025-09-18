@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User, Building, Phone } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import type { User as UserType } from '../types/auth';
 
 interface SignupProps {
+  onSignup: (user: UserType) => void;
   onSwitchToLogin: () => void;
 }
 
-const Signup: React.FC<SignupProps> = ({ onSwitchToLogin }) => {
-  const { register } = useAuth();
+const Signup: React.FC<SignupProps> = ({ onSignup, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'district' as const,
+    role: 'district' as UserType['role'],
     department: '',
     phone: ''
   });
@@ -54,20 +54,18 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin }) => {
       return;
     }
 
-    // Call the auth context register function
-    const result = await register({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      role: formData.role,
-      department: formData.department,
-      phone: formData.phone
-    });
-
-    if (!result.success) {
-      setError(result.error || 'Registration failed');
-    }
-    setIsLoading(false);
+    // Simulate API call
+    setTimeout(() => {
+      const newUser: UserType = {
+        id: Date.now().toString(),
+        email: formData.email,
+        name: formData.name,
+        role: formData.role,
+        department: formData.department || 'Tribal Welfare'
+      };
+      onSignup(newUser);
+      setIsLoading(false);
+    }, 1000);
   };
 
   return (
