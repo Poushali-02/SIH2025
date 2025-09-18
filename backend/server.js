@@ -9,20 +9,25 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import helmet from "helmet";
 import User from "./models/User.js";
+import mogan from "morgan";
 
 dotenv.config({ path: '../.env' });
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/fra_portal')
-.then(() => console.log('✅ MongoDB connected'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+mongoose
+  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/fra_portal")
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const app = express();
-app.use(helmet()); 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
-app.use(express.json()); 
+app.use(helmet());
+app.use(mogan("dev"));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(express.json());
 
 // ------------------- Storage Config -------------------
 const storage = multer.diskStorage({
@@ -36,7 +41,12 @@ const storage = multer.diskStorage({
 
 // ------------------- File Filter -------------------
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "application/pdf"];
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "application/pdf",
+  ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -54,43 +64,48 @@ const upload = multer({
 // ------------------- Gemini Setup -------------------
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-
-app.post('/register', async (req, res) => {
+app.post("/register", async (req, res) => {
   try {
     const { name, email, password, role, department, phone } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
+      return res
+        .status(400)
+        .json({ error: "Name, email, and password are required" });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long" });
     }
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
     }
 
     const user = new User({
       name,
       email: email.toLowerCase(),
       password,
-      role: role || 'district',
+      role: role || "district",
       department,
-      phone
+      phone,
     });
 
     await user.save();
 
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
     );
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: "User registered successfully",
       token,
       user: {
         id: user._id,
@@ -98,41 +113,41 @@ app.post('/register', async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        phone: user.phone
-      }
+        phone: user.phone,
+      },
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Server error during registration' });
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Server error during registration" });
   }
 });
 
-app.post('/login', async (req, res) => {
+app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: "Invalid email or password" });
     }
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: "Invalid email or password" });
     }
 
     const token = jwt.sign(
       { userId: user._id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "7d" }
     );
 
     res.json({
-      message: 'Login successful',
+      message: "Login successful",
       token,
       user: {
         id: user._id,
@@ -140,30 +155,34 @@ app.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        phone: user.phone
-      }
+        phone: user.phone,
+      },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Server error during login' });
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Server error during login" });
   }
 });
 
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; 
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return res.status(401).json({ error: "Access token required" });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || "your-secret-key",
+    (err, user) => {
+      if (err) {
+        return res.status(403).json({ error: "Invalid or expired token" });
+      }
+      req.user = user;
+      next();
     }
-    req.user = user; 
-    next();
-  });
+  );
 };
 
 // ------------------- OCR Route -------------------
@@ -177,10 +196,12 @@ app.post("/ocr", upload.single("file"), async (req, res) => {
     const fileExt = path.extname(req.file.originalname).toLowerCase();
 
     // Select model (flash = faster for images, pro = better for PDFs/text)
-    const model =
-      fileExt === ".pdf"
-        ? genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
-        : genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // const model =
+    //   fileExt === ".pdf"
+    //     ? genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    //     : genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     // Convert file → Base64
     const fileData = fs.readFileSync(filePath).toString("base64");
