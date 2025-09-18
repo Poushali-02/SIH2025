@@ -6,3 +6,4 @@ backend/node_modules/@google/generative-ai/package.json
 backend/node_modules/@google/generative-ai/README.md
 .venv/
 Model/__pycache__/
+backend/package-lock.json
