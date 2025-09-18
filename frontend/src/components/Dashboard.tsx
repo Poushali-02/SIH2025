@@ -9,6 +9,7 @@ import {
   User,
   X,
   FileText,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { getPrediction, type PredictionResponse } from "../services/predictionService";
@@ -23,6 +24,7 @@ const Dashboard: React.FC = () => {
   const [address, setAddress] = useState("");
   const [predictions, setPredictions] = useState<PredictionResponse | null>(null);
   const [predictionLoading, setPredictionLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Allowed file types
   const allowedTypes = [
@@ -101,6 +103,9 @@ const Dashboard: React.FC = () => {
     const formData = new FormData();
     formData.append("file", file);
 
+    setUploading(true);
+    setMessage("🔄 Processing OCR... Please wait.");
+
     try {
       console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
       
@@ -124,6 +129,8 @@ const Dashboard: React.FC = () => {
         console.error("Request setup error:", err.message);
         setMessage("❌ Request failed. Please try again.");
       }
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -239,12 +246,19 @@ const Dashboard: React.FC = () => {
 
                   <button
                     onClick={handleUpload}
-                    disabled={!file}
-                    className={`bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-colors ${
-                      !file ? "opacity-50 cursor-not-allowed" : ""
+                    disabled={!file || uploading}
+                    className={`bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                      !file || uploading ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >
-                    Upload & Extract
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      "Upload & Extract"
+                    )}
                   </button>
                 </div>
               </div>
@@ -257,10 +271,17 @@ const Dashboard: React.FC = () => {
                 OCR Extracted Text
               </h2>
               <div className="bg-gray-50 rounded-lg p-4 min-h-[100px]">
-                <pre className="text-gray-700 whitespace-pre-wrap break-words">
-                  {ocrText ||
-                    "📄 No text extracted yet. Upload a document to see results."}
-                </pre>
+                {uploading ? (
+                  <div className="flex items-center justify-center gap-3 text-gray-600">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Processing document... Please wait.</span>
+                  </div>
+                ) : (
+                  <pre className="text-gray-700 whitespace-pre-wrap break-words">
+                    {ocrText ||
+                      "📄 No text extracted yet. Upload a document to see results."}
+                  </pre>
+                )}
               </div>
             </div>
           </div>
