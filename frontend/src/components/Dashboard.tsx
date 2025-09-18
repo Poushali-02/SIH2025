@@ -10,6 +10,8 @@ import {
   X,
   FileText,
   Loader2,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { getPrediction, type PredictionResponse } from "../services/predictionService";
@@ -377,23 +379,64 @@ const Dashboard: React.FC = () => {
               <div className="space-y-3">
                 {predictions ? (
                   <>
-                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <span className="text-green-800">
+                    {/* PM-Kisan Eligibility */}
+                    <div className={`flex items-center gap-3 p-3 rounded-lg ${
+                      predictions.predicted_class_pmk === 1 
+                        ? "bg-green-50" 
+                        : "bg-red-50"
+                    }`}>
+                      {predictions.predicted_class_pmk === 1 ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500" />
+                      )}
+                      <span className={
+                        predictions.predicted_class_pmk === 1 
+                          ? "text-green-800" 
+                          : "text-red-800"
+                      }>
                         PM-Kisan Eligibility: {predictions.predicted_class_pmk === 1 ? "Eligible" : "Not Eligible"} 
                         ({(predictions.predicted_probability_pmk * 100).toFixed(1)}%)
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <span className="text-green-800">
+
+                    {/* Jal Jeevan Mission Priority */}
+                    <div className={`flex items-center gap-3 p-3 rounded-lg ${
+                      predictions.predicted_class_pmjvm === 1 
+                        ? "bg-green-50" 
+                        : "bg-yellow-50"
+                    }`}>
+                      {predictions.predicted_class_pmjvm === 1 ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                      )}
+                      <span className={
+                        predictions.predicted_class_pmjvm === 1 
+                          ? "text-green-800" 
+                          : "text-yellow-800"
+                      }>
                         Priority for Jal Jeevan Mission: {predictions.predicted_class_pmjvm === 1 ? "High Priority" : "Low Priority"} 
                         ({(predictions.predicted_probability_pmjvm * 100).toFixed(1)}%)
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                      <CheckCircle className="h-5 w-5 text-yellow-500" />
-                      <span className="text-yellow-800">
+
+                    {/* JJM Eligibility */}
+                    <div className={`flex items-center gap-3 p-3 rounded-lg ${
+                      predictions.predicted_class_jjm === 1 
+                        ? "bg-green-50" 
+                        : "bg-red-50"
+                    }`}>
+                      {predictions.predicted_class_jjm === 1 ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500" />
+                      )}
+                      <span className={
+                        predictions.predicted_class_jjm === 1 
+                          ? "text-green-800" 
+                          : "text-red-800"
+                      }>
                         JJM Eligibility: {predictions.predicted_class_jjm === 1 ? "Eligible" : "Not Eligible"} 
                         ({(predictions.predicted_probability_jjm * 100).toFixed(1)}%)
                       </span>
