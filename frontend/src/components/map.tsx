@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import "./Map.css";
 import axios from "axios";
 
+/* --------------------- Types --------------------- */
 type District = {
   name: string;
   code: string;
@@ -39,7 +40,16 @@ type LValues = {
   l24: number;
 };
 
-// LULC (Land Use Land Cover) categories mapping
+// Area-level thematic object containing values, totalarea and optional name
+type AreaThematic = {
+  values: LValues;
+  totalarea?: number;
+  name?: string;
+};
+
+type ThematicDataV2 = { [areaId: string]: AreaThematic };
+
+/* --------------------- LULC Categories (colors & labels) --------------------- */
 const lulcCategories = {
   // Built-up Areas
   l01: {
@@ -198,10 +208,10 @@ const lulcCategories = {
     visible: true,
     group: "Misc",
   },
-};
+} as const;
 
-// Category groupings for UI organization
-const categoryGroups = {
+/* --------------------- Category groups --------------------- */
+const categoryGroups: Record<string, (keyof typeof lulcCategories)[]> = {
   "Built-up": ["l01", "l02", "l03"],
   Agriculture: ["l04", "l05", "l06", "l07"],
   Forest: ["l08", "l09", "l10", "l11", "l12"],
@@ -210,7 +220,16 @@ const categoryGroups = {
   Misc: ["l24"],
 };
 
-type ThematicData = { [areaId: string]: LValues };
+/* --------------------- districts (HUGE) --------------------- */
+/*
+  Paste your existing districts array here (the huge one you provided earlier).
+  Example:
+  const districts: District[] = [
+    { name: "Patna", code: "1028" },
+    { name: "Dindori", code: "2341" },
+    // ...
+  ];
+*/
 
 const districts: District[] = [
   { name: "Patna", code: "1028" },
@@ -809,292 +828,127 @@ const districts: District[] = [
   { name: "Lahul And Spiti", code: "0203" },
 ];
 
-// Helper function to check if LValues has any non-zero values
-const hasNonZeroLValues = (values: LValues | null | undefined) => {
+/* --------------------- Helper utilities --------------------- */
+
+// Convert any input to numeric LULC value
+const cleanLulcValue = (value: any): number => {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === "number") return value;
+  const trimmed = String(value).trim();
+  if (!trimmed) return 0;
+  const parsed = parseFloat(trimmed);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+// Check if an LValues has any non-zero entries
+const hasNonZeroLValues = (values?: LValues | null) => {
   if (!values) return false;
   return Object.values(values).some(
-    (v) => parseFloat(String(v).trim() || "0") > 0
+    (v) => (typeof v === "number" ? v : cleanLulcValue(v)) > 0
   );
 };
 
-// Helper function to find dominant land use type
-const findDominantLandUseType = (
-  values: LValues,
-  visibleLayers?: Record<string, boolean>
-): string => {
-  let maxKey = "";
-  let maxValue = 0;
-  let foundVisibleLayer = false;
+/* --------------------- Process LULC response (rich) --------------------- */
 
-  // Check all lValues to find the maximum
-  Object.entries(values).forEach(([key, value]) => {
-    // Skip if key doesn't start with 'l' (not a land use type)
-    if (!key.startsWith("l")) return;
+const processLulcResponse = (data: any): ThematicDataV2 => {
+  const thematic: ThematicDataV2 = {};
 
-    // Skip if layer is not visible
-    if (visibleLayers && !visibleLayers[key]) {
-      return;
+  // helper to build LValues object
+  const buildLValues = (obj: any): LValues => {
+    const out: any = {};
+    for (let i = 1; i <= 24; i++) {
+      const key = "l" + String(i).padStart(2, "0");
+      // Accept multiple variants
+      out[key] = cleanLulcValue(
+        obj[key.toUpperCase()] ?? obj[key] ?? obj[String(i)] ?? 0
+      );
     }
-
-    // Clean and parse the value
-    const numValue =
-      typeof value === "number"
-        ? value
-        : parseFloat(String(value).trim() || "0");
-
-    if (numValue > 0) {
-      foundVisibleLayer = true;
-
-      if (numValue > maxValue) {
-        maxValue = numValue;
-        maxKey = key;
-      }
-    }
-  });
-
-  // If no dominant visible layer was found (all values are 0 or layers are hidden),
-  // return empty string to indicate no visible layer
-  return foundVisibleLayer ? maxKey : "";
-};
-
-// Process LULC response from Bhuvan API
-const processLulcResponse = (data: any): ThematicData => {
-  const thematicData: ThematicData = {};
-
-  // Handle different possible response formats from the Bhuvan API
-
-  // Helper function to clean and parse LULC values
-  const cleanLulcValue = (value: any): number => {
-    if (value === undefined || value === null) return 0;
-
-    // If it's already a number, return it
-    if (typeof value === "number") return value;
-
-    // If it's a string, trim spaces and convert to number
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (!trimmed) return 0;
-      const parsed = parseFloat(trimmed);
-      return isNaN(parsed) ? 0 : parsed;
-    }
-
-    // For any other type, try to convert to number
-    const parsed = parseFloat(String(value));
-    return isNaN(parsed) ? 0 : parsed;
+    return out as LValues;
   };
 
-  // Format 1: Direct object with LULC code properties
+  // Clean parser for numeric fields (totalarea etc)
+  const cleanNum = (v: any) => cleanLulcValue(v);
+
+  // Format 1: direct object
   if (
     data &&
     typeof data === "object" &&
     !Array.isArray(data) &&
     !data.features
   ) {
-    console.log("Processing direct LULC data format");
-
-    // Use district code as area ID if available, otherwise use a default
-    const areaId = data.district_code || data.state_code || "area1";
-
-    // Check if we have any LULC data in the expected format (L01, L02, etc.)
-    const lValues: LValues = {
-      l01: cleanLulcValue(data.L01 || data.l01),
-      l02: cleanLulcValue(data.L02 || data.l02),
-      l03: cleanLulcValue(data.L03 || data.l03),
-      l04: cleanLulcValue(data.L04 || data.l04),
-      l05: cleanLulcValue(data.L05 || data.l05),
-      l06: cleanLulcValue(data.L06 || data.l06),
-      l07: cleanLulcValue(data.L07 || data.l07),
-      l08: cleanLulcValue(data.L08 || data.l08),
-      l09: cleanLulcValue(data.L09 || data.l09),
-      l10: cleanLulcValue(data.L10 || data.l10),
-      l11: cleanLulcValue(data.L11 || data.l11),
-      l12: cleanLulcValue(data.L12 || data.l12),
-      l13: cleanLulcValue(data.L13 || data.l13),
-      l14: cleanLulcValue(data.L14 || data.l14),
-      l15: cleanLulcValue(data.L15 || data.l15),
-      l16: cleanLulcValue(data.L16 || data.l16),
-      l17: cleanLulcValue(data.L17 || data.l17),
-      l18: cleanLulcValue(data.L18 || data.l18),
-      l19: cleanLulcValue(data.L19 || data.l19),
-      l20: cleanLulcValue(data.L20 || data.l20),
-      l21: cleanLulcValue(data.L21 || data.l21),
-      l22: cleanLulcValue(data.L22 || data.l22),
-      l23: cleanLulcValue(data.L23 || data.l23),
-      l24: cleanLulcValue(data.L24 || data.l24),
+    const areaId =
+      data.district_code ??
+      data.state_code ??
+      data.code ??
+      data.name ??
+      "area1";
+    thematic[String(areaId)] = {
+      values: buildLValues(data),
+      totalarea: cleanNum(data.totalarea ?? data.TOTALAREA ?? data.total ?? 0),
+      name: data.name ?? data.NAME ?? undefined,
     };
-
-    thematicData[areaId] = lValues;
-    return thematicData;
+    return thematic;
   }
 
-  // Format 2: GeoJSON format with features array
+  // Format 2: GeoJSON FeatureCollection
   if (data && data.features && Array.isArray(data.features)) {
-    console.log("Processing GeoJSON LULC data format");
-
-    // Process each feature (typically just one for the district)
-    data.features.forEach((feature: any) => {
-      if (feature.properties) {
-        // Use feature ID if available, or create one
-        const areaId =
-          feature.properties.id ||
-          feature.id ||
-          `area${Object.keys(thematicData).length + 1}`;
-
-        // Convert Bhuvan's format to our LValues format
-        const lValues: LValues = {
-          l01: parseFloat(
-            feature.properties.L01 || feature.properties.l01 || 0
-          ),
-          l02: parseFloat(
-            feature.properties.L02 || feature.properties.l02 || 0
-          ),
-          l03: parseFloat(
-            feature.properties.L03 || feature.properties.l03 || 0
-          ),
-          l04: parseFloat(
-            feature.properties.L04 || feature.properties.l04 || 0
-          ),
-          l05: parseFloat(
-            feature.properties.L05 || feature.properties.l05 || 0
-          ),
-          l06: parseFloat(
-            feature.properties.L06 || feature.properties.l06 || 0
-          ),
-          l07: parseFloat(
-            feature.properties.L07 || feature.properties.l07 || 0
-          ),
-          l08: parseFloat(
-            feature.properties.L08 || feature.properties.l08 || 0
-          ),
-          l09: parseFloat(
-            feature.properties.L09 || feature.properties.l09 || 0
-          ),
-          l10: parseFloat(
-            feature.properties.L10 || feature.properties.l10 || 0
-          ),
-          l11: parseFloat(
-            feature.properties.L11 || feature.properties.l11 || 0
-          ),
-          l12: parseFloat(
-            feature.properties.L12 || feature.properties.l12 || 0
-          ),
-          l13: parseFloat(
-            feature.properties.L13 || feature.properties.l13 || 0
-          ),
-          l14: parseFloat(
-            feature.properties.L14 || feature.properties.l14 || 0
-          ),
-          l15: parseFloat(
-            feature.properties.L15 || feature.properties.l15 || 0
-          ),
-          l16: parseFloat(
-            feature.properties.L16 || feature.properties.l16 || 0
-          ),
-          l17: parseFloat(
-            feature.properties.L17 || feature.properties.l17 || 0
-          ),
-          l18: parseFloat(
-            feature.properties.L18 || feature.properties.l18 || 0
-          ),
-          l19: parseFloat(
-            feature.properties.L19 || feature.properties.l19 || 0
-          ),
-          l20: parseFloat(
-            feature.properties.L20 || feature.properties.l20 || 0
-          ),
-          l21: parseFloat(
-            feature.properties.L21 || feature.properties.l21 || 0
-          ),
-          l22: parseFloat(
-            feature.properties.L22 || feature.properties.l22 || 0
-          ),
-          l23: parseFloat(
-            feature.properties.L23 || feature.properties.l23 || 0
-          ),
-          l24: parseFloat(
-            feature.properties.L24 || feature.properties.l24 || 0
-          ),
-        };
-
-        thematicData[areaId] = lValues;
-      }
+    data.features.forEach((f: any, idx: number) => {
+      const props = f.properties ?? {};
+      const areaId =
+        props.district_code ?? props.code ?? props.id ?? `area${idx + 1}`;
+      thematic[String(areaId)] = {
+        values: buildLValues(props),
+        totalarea: cleanNum(
+          props.totalarea ?? props.TOTALAREA ?? props.total ?? 0
+        ),
+        name: props.name ?? props.title ?? undefined,
+      };
     });
+    return thematic;
   }
 
-  // Format 3: Array of objects with LULC data
+  // Format 3: Array of objects
   if (Array.isArray(data)) {
-    console.log("Processing array LULC data format");
-
-    data.forEach((item, index) => {
-      if (typeof item === "object" && item !== null) {
+    data.forEach((item: any, idx: number) => {
+      if (item && typeof item === "object") {
         const areaId =
-          item.district_code || item.state_code || `area${index + 1}`;
-
-        const lValues: LValues = {
-          l01: cleanLulcValue(item.L01 || item.l01),
-          l02: cleanLulcValue(item.L02 || item.l02),
-          l03: cleanLulcValue(item.L03 || item.l03),
-          l04: cleanLulcValue(item.L04 || item.l04),
-          l05: cleanLulcValue(item.L05 || item.l05),
-          l06: cleanLulcValue(item.L06 || item.l06),
-          l07: cleanLulcValue(item.L07 || item.l07),
-          l08: cleanLulcValue(item.L08 || item.l08),
-          l09: cleanLulcValue(item.L09 || item.l09),
-          l10: cleanLulcValue(item.L10 || item.l10),
-          l11: cleanLulcValue(item.L11 || item.l11),
-          l12: cleanLulcValue(item.L12 || item.l12),
-          l13: cleanLulcValue(item.L13 || item.l13),
-          l14: cleanLulcValue(item.L14 || item.l14),
-          l15: cleanLulcValue(item.L15 || item.l15),
-          l16: cleanLulcValue(item.L16 || item.l16),
-          l17: cleanLulcValue(item.L17 || item.l17),
-          l18: cleanLulcValue(item.L18 || item.l18),
-          l19: cleanLulcValue(item.L19 || item.l19),
-          l20: cleanLulcValue(item.L20 || item.l20),
-          l21: cleanLulcValue(item.L21 || item.l21),
-          l22: cleanLulcValue(item.L22 || item.l22),
-          l23: cleanLulcValue(item.L23 || item.l23),
-          l24: cleanLulcValue(item.L24 || item.l24),
+          item.district_code ??
+          item.state_code ??
+          item.code ??
+          item.name ??
+          `area${idx + 1}`;
+        thematic[String(areaId)] = {
+          values: buildLValues(item),
+          totalarea: cleanNum(
+            item.totalarea ?? item.TOTALAREA ?? item.total ?? 0
+          ),
+          name: item.name ?? undefined,
         };
-
-        thematicData[areaId] = lValues;
       }
     });
+    return thematic;
   }
 
-  // Format 4: String response that needs to be parsed
+  // Format 4: string that can be parsed
   if (typeof data === "string") {
-    console.log("Processing string LULC data format");
     try {
-      // Try to parse as JSON
-      const parsedData = JSON.parse(data);
-      // Call ourselves recursively with the parsed data
-      return processLulcResponse(parsedData);
-    } catch (error) {
-      console.error("Failed to parse string response as JSON:", error);
+      return processLulcResponse(JSON.parse(data));
+    } catch (e) {
+      console.warn("Could not parse string LULC response");
     }
   }
 
-  // If we couldn't find valid LULC data in any format, log an error
-  if (Object.keys(thematicData).length === 0) {
-    console.error("Could not extract LULC data from response:", data);
-  } else {
-    console.log(
-      `Successfully extracted LULC data for ${
-        Object.keys(thematicData).length
-      } areas`
-    );
-  }
-
-  return thematicData;
+  console.error("No usable LULC data found in response:", data);
+  return thematic;
 };
+
+/* --------------------- Fetch district polygon / OSM helpers (unchanged) --------------------- */
 
 async function fetchDistrictGeoJSON(
   districtCode: string,
   districtName: string
 ): Promise<any> {
   try {
-    // Try to get district polygon from OpenStreetMap
     const district = await getDistrictPolygon(districtName);
     if (district) {
       return district;
@@ -1162,16 +1016,18 @@ async function getDistrictPolygon(districtName: string): Promise<any> {
   }
 }
 
-async function fetchThematicData(districtCode: string): Promise<ThematicData> {
+/* --------------------- Fetch thematic data (uses processLulcResponse) --------------------- */
+
+async function fetchThematicData(
+  districtCode: string
+): Promise<ThematicDataV2> {
   try {
     console.log(
       `Fetching LULC data via proxy for district code: ${districtCode}`
     );
 
-    // Use API token from environment variables
     const token = import.meta.env.VITE_LULC_API || "";
 
-    // Use axios for better error handling and response processing
     const response = await axios.get(`/api/lulc`, {
       params: {
         distcode: districtCode,
@@ -1181,26 +1037,81 @@ async function fetchThematicData(districtCode: string): Promise<ThematicData> {
     });
 
     console.log("Data received from API:", response.data);
+    const processed = processLulcResponse(response.data);
 
-    // Process the response to convert it to our expected format
-    return processLulcResponse(response.data);
+    return processed;
   } catch (error) {
     console.error("Error fetching LULC data:", error);
-
-    // Return an empty data structure - we don't need to try direct API as it will fail due to CORS
     return {};
   }
 }
 
-// Style function that uses the LULC color mapping
+/* --------------------- Color interpolation helpers --------------------- */
+
+// Simple HSL -> HEX converter
+const hslToHex = (h: number, s: number, l: number) => {
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  let r: number, g: number, b: number;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+  const toHex = (x: number) => {
+    const v = Math.round(x * 255)
+      .toString(16)
+      .padStart(2, "0");
+    return v;
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+// Create color from percent for a general green-blue palette depending on class group
+const colorForPercent = (
+  baseHex: string | undefined,
+  pct: number,
+  group?: string
+) => {
+  // clamp pct 0..1
+  const clamped = Math.max(0, Math.min(1, pct));
+  // map percent to lightness (0.9 -> light, 0.35 -> dark)
+  const lightness = Math.max(0.35, 0.9 - clamped * 0.8);
+  // choose a hue by group (simple mapping)
+  const groupHue: Record<string, number> = {
+    "Built-up": 0 / 360, // red
+    Agriculture: 40 / 360, // yellow-orange
+    Forest: 120 / 360, // green
+    Wetland: 210 / 360, // blue
+    "Other Natural": 30 / 360,
+    Misc: 0,
+  };
+  const hue = group ? groupHue[group] ?? 120 / 360 : 120 / 360;
+  // use moderate saturation
+  return hslToHex(hue, 0.6, lightness);
+};
+
+/* --------------------- Style function for GeoJSON features --------------------- */
+
 const styleFeature = (
   feature: any,
-  thematicData: ThematicData | null,
-  visibleLayers?: Record<string, boolean>,
-  selectedDistrict?: District | null
+  thematicData: ThematicDataV2 | null,
+  visibleLayers: Record<string, boolean> | undefined,
+  selectedDistrict: District | null,
+  displayMode: "dominant" | "byClass",
+  selectedClass: string
 ): L.PathOptions => {
   if (!thematicData) {
-    // Enhanced default styling with thicker border, higher contrast for better visibility
     return {
       fillColor: "#e0e0e0",
       weight: 3.5,
@@ -1211,7 +1122,7 @@ const styleFeature = (
     };
   }
 
-  // Try to get area ID from different property fields
+  // Fetch candidate areaId from feature props or use selected district code
   const areaId =
     feature.properties?.id ||
     feature.properties?.osm_id ||
@@ -1220,9 +1131,15 @@ const styleFeature = (
     feature.properties?.district_code ||
     (selectedDistrict && selectedDistrict.code);
 
-  const lValues = areaId ? thematicData[areaId] : null;
+  // If direct mapping not found, and there's only one thematic entry, use that
+  let areaData: AreaThematic | undefined = areaId
+    ? thematicData[areaId]
+    : undefined;
+  if (!areaData && thematicData && Object.keys(thematicData).length === 1) {
+    areaData = thematicData[Object.keys(thematicData)[0]];
+  }
 
-  if (!lValues) {
+  if (!areaData) {
     return {
       fillColor: "#f0f0f0",
       weight: 3,
@@ -1233,105 +1150,72 @@ const styleFeature = (
     };
   }
 
-  if (hasNonZeroLValues(lValues)) {
-    // Check if any visible layers have non-zero values
-    let hasVisibleNonZeroLayers = false;
-    let visibleLayersWithValues: string[] = [];
+  const lValues = areaData.values;
+  const total =
+    areaData.totalarea ??
+    Object.values(lValues).reduce(
+      (s, n) => s + (typeof n === "number" ? n : cleanLulcValue(n)),
+      0
+    );
 
-    if (visibleLayers) {
-      Object.entries(lValues).forEach(([key, value]) => {
-        if (!key.startsWith("l")) return;
-
-        const numValue =
-          typeof value === "number"
-            ? value
-            : parseFloat(String(value).trim() || "0");
-
-        if (visibleLayers[key] && numValue > 0) {
-          hasVisibleNonZeroLayers = true;
-          visibleLayersWithValues.push(key);
-        }
-      });
-    }
-
-    // If no visible layers have non-zero values, return neutral style
-    if (visibleLayers && !hasVisibleNonZeroLayers) {
-      return {
-        fillColor: "#f0f0f0",
-        weight: 3,
-        fillOpacity: 0.3,
-        color: "#333333",
-        opacity: 0.8,
-        dashArray: "3, 5",
-      };
-    }
-
-    // Find dominant land use type, respecting visible layers
-    const dominantType = findDominantLandUseType(lValues, visibleLayers);
-
-    // If no visible layers or dominant type is empty, return a neutral style
-    if (!dominantType) {
-      return {
-        fillColor: "#f0f0f0",
-        weight: 3,
-        fillOpacity: 0.3,
-        color: "#333333",
-        opacity: 0.8,
-        dashArray: "3, 5",
-      };
-    }
-
-    // Use the corresponding color from LULC categories with enhanced styling
-    const category =
-      lulcCategories[dominantType as keyof typeof lulcCategories];
-    const color = category?.color || "#f0f0f0";
-
+  // display mode: byClass => color by percentage of selectedClass inside total
+  if (displayMode === "byClass" && selectedClass) {
+    const val = (lValues as any)[selectedClass] ?? 0;
+    const pct = total > 0 ? val / total : 0;
+    // find group of this class for hue
+    const group =
+      lulcCategories[selectedClass as keyof typeof lulcCategories]?.group;
+    const color = colorForPercent(
+      lulcCategories[selectedClass as keyof typeof lulcCategories]?.color,
+      pct,
+      group
+    );
     return {
       fillColor: color,
-      weight: 3, // Thicker border
-      fillOpacity: 0.7, // More opaque fill
-      color: "#222222", // Darker border for better contrast
-      opacity: 0.9, // More opaque border
+      weight: 3,
+      fillOpacity: 0.75,
+      color: "#222222",
+      opacity: 0.9,
       dashArray: "",
     };
   }
 
-  // Default style for areas with no LULC data or all zeros
-  return {
-    fillColor: "#f0f0f0",
-    weight: 3,
-    fillOpacity: 0.3,
-    color: "#333333",
-    opacity: 0.8,
-    dashArray: "3, 5",
-  };
+  // default: dominant class
+  let maxKey = "";
+  let maxVal = 0;
+  Object.entries(lValues).forEach(([k, v]) => {
+    const num = typeof v === "number" ? v : cleanLulcValue(v);
+    if (num > maxVal) {
+      maxVal = num;
+      maxKey = k;
+    }
+  });
 
-  // Enhanced default style for areas with no data - more visible
+  if (!maxKey || maxVal <= 0) {
+    return {
+      fillColor: "#f0f0f0",
+      weight: 3,
+      fillOpacity: 0.3,
+      color: "#333333",
+      opacity: 0.8,
+      dashArray: "3, 5",
+    };
+  }
+
+  const category = lulcCategories[maxKey as keyof typeof lulcCategories];
+  const color = category?.color || "#f0f0f0";
+
   return {
-    fillColor: "#f0f0f0",
+    fillColor: color,
     weight: 3,
-    fillOpacity: 0.3,
-    color: "#333333", // Darker border
-    opacity: 0.8, // More opaque border
-    dashArray: "3, 5",
+    fillOpacity: 0.7,
+    color: "#222222",
+    opacity: 0.9,
+    dashArray: "",
   };
 };
 
-const MapViewReset = ({
-  center,
-  zoom,
-}: {
-  center: LatLngExpression;
-  zoom: number;
-}) => {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
-};
-
-// Custom component to fit the map bounds to the GeoJSON data
+/* --------------------- Fit bounds helper --------------------- */
 const FitBoundsToData = ({ geoJsonData }: { geoJsonData: any }) => {
   const map = useMap();
 
@@ -1342,12 +1226,9 @@ const FitBoundsToData = ({ geoJsonData }: { geoJsonData: any }) => {
       geoJsonData.features.length > 0
     ) {
       try {
-        // Create a GeoJSON layer to get the bounds
         const geoJsonLayer = L.geoJSON(geoJsonData);
         const bounds = geoJsonLayer.getBounds();
-
-        if (bounds.isValid()) {
-          console.log("Fitting map to bounds:", bounds);
+        if (bounds.isValid && bounds.isValid()) {
           map.fitBounds(bounds, { padding: [20, 20] });
         }
       } catch (error) {
@@ -1359,32 +1240,24 @@ const FitBoundsToData = ({ geoJsonData }: { geoJsonData: any }) => {
   return null;
 };
 
-// Component to handle LULC layer visibility
+/* --------------------- LULC Layer Control (DOM control) --------------------- */
+
 interface LulcLayerControlProps {
-  thematicData: ThematicData | null;
+  thematicData: ThematicDataV2 | null;
   onLayerToggle: (layerId: string, visible: boolean) => void;
+  visibleLayers: Record<string, boolean>;
 }
 
 const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
   thematicData,
   onLayerToggle,
+  visibleLayers,
 }) => {
   const map = useMap();
-  const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>(
-    () => {
-      // Initialize all layers as visible by default
-      const initialState: Record<string, boolean> = {};
-      Object.keys(lulcCategories).forEach((key) => {
-        initialState[key] = true;
-      });
-      return initialState;
-    }
-  );
 
   useEffect(() => {
-    if (!thematicData) return;
+    if (!map) return;
 
-    // Create a control panel for LULC layers
     const controlDiv = L.DomUtil.create("div", "info layer-control");
     controlDiv.style.backgroundColor = "white";
     controlDiv.style.padding = "12px";
@@ -1395,27 +1268,24 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
     controlDiv.style.overflowY = "auto";
     controlDiv.style.boxShadow = "0 0 10px rgba(0,0,0,0.2)";
 
-    // Prevent map events from propagating through the control
     L.DomEvent.disableClickPropagation(controlDiv);
     L.DomEvent.disableScrollPropagation(controlDiv);
 
-    // Identify which LULC categories are present in the data
+    // Identify present categories in data
     const presentCategories = new Set<string>();
     let hasAnyLulcData = false;
-
-    Object.values(thematicData).forEach((lValues) => {
-      if (!lValues) return;
-      Object.entries(lValues).forEach(([key, value]) => {
-        const numValue =
-          typeof value === "number"
-            ? value
-            : parseFloat(String(value).trim() || "0");
-        if (key.startsWith("l") && numValue > 0) {
-          presentCategories.add(key);
-          hasAnyLulcData = true;
-        }
+    if (thematicData) {
+      Object.values(thematicData).forEach((area) => {
+        if (!area) return;
+        Object.entries(area.values).forEach(([key, value]) => {
+          const num = typeof value === "number" ? value : cleanLulcValue(value);
+          if (key.startsWith("l") && num > 0) {
+            presentCategories.add(key);
+            hasAnyLulcData = true;
+          }
+        });
       });
-    });
+    }
 
     controlDiv.innerHTML = `
       <div style="font-weight:bold;font-size:14px;margin-bottom:10px;border-bottom:1px solid #ccc;padding-bottom:8px;">
@@ -1424,19 +1294,16 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
       </div>
     `;
 
-    // Using the globally defined categoryGroups for consistency
-
-    // Create layer toggles grouped by category
     Object.entries(categoryGroups).forEach(([groupName, layerIds]) => {
-      // Check if any layer in this group is present in the data
-      const isGroupPresent = layerIds.some((id) => presentCategories.has(id));
+      const isGroupPresent = layerIds.some((id) =>
+        presentCategories.has(id as string)
+      );
       const isImportantGroup =
         groupName === "Built-up" ||
         groupName === "Agriculture" ||
         groupName === "Other Natural";
 
       if (isGroupPresent || isImportantGroup || !hasAnyLulcData) {
-        // Create group header
         const groupHeader = document.createElement("div");
         groupHeader.style.fontWeight = "bold";
         groupHeader.style.marginTop = "8px";
@@ -1444,13 +1311,12 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
         groupHeader.textContent = groupName;
         controlDiv.appendChild(groupHeader);
 
-        // Create layer toggles for this group
         layerIds.forEach((layerId) => {
           const layerInfo =
             lulcCategories[layerId as keyof typeof lulcCategories];
 
           if (
-            presentCategories.has(layerId) ||
+            presentCategories.has(layerId as string) ||
             layerId === "l01" ||
             layerId === "l04" ||
             layerId === "l17" ||
@@ -1464,7 +1330,6 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
             row.style.position = "relative";
             row.id = `lulc-row-${layerId}`;
 
-            // Add a small indicator dot to show layer is active in the map
             const statusIndicator = document.createElement("span");
             statusIndicator.id = `lulc-status-${layerId}`;
             statusIndicator.style.position = "absolute";
@@ -1479,7 +1344,7 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.id = `lulc-layer-${layerId}`;
-            checkbox.checked = visibleLayers[layerId];
+            checkbox.checked = !!visibleLayers[layerId];
             checkbox.style.marginRight = "5px";
 
             const label = document.createElement("label");
@@ -1488,20 +1353,11 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
 
             checkbox.addEventListener("change", (e) => {
               const isVisible = (e.target as HTMLInputElement).checked;
-
-              // Update status indicator
-              const statusIndicator = document.getElementById(
-                `lulc-status-${layerId}`
-              );
-              if (statusIndicator) {
-                statusIndicator.style.backgroundColor = isVisible
-                  ? "#4CAF50"
-                  : "#ccc";
+              const si = document.getElementById(`lulc-status-${layerId}`);
+              if (si) {
+                si.style.backgroundColor = isVisible ? "#4CAF50" : "#ccc";
               }
-
-              // Update state and notify parent
-              setVisibleLayers((prev) => ({ ...prev, [layerId]: isVisible }));
-              onLayerToggle(layerId, isVisible);
+              onLayerToggle(layerId as string, isVisible);
             });
 
             row.appendChild(checkbox);
@@ -1513,11 +1369,8 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
       }
     });
 
-    // Add the control to the map
     const customControl = L.Control.extend({
-      options: {
-        position: "topright",
-      },
+      options: { position: "topright" },
       onAdd: function () {
         return controlDiv;
       },
@@ -1526,47 +1379,21 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
     const control = new customControl();
     control.addTo(map);
 
-    // Add a custom event handler to the map to handle layer visibility changes
-    const originalInvalidateSize = map.invalidateSize;
-    map.invalidateSize = function (options) {
-      // Call the original method
-      originalInvalidateSize.call(map, options);
-
-      // Force re-render of layers by triggering moveend
-      map.fireEvent("moveend");
-
-      return map;
-    };
-
-    // Set up toggle all button
     const toggleAllBtn = controlDiv.querySelector("#toggle-all-lulc");
     if (toggleAllBtn) {
       toggleAllBtn.addEventListener("click", () => {
-        // Determine current state - if any are visible, we'll hide all, otherwise show all
         const anyVisible = Object.values(visibleLayers).some((v) => v);
         const newState = !anyVisible;
-
-        // Create new state with all layers set to new visibility
-        const newLayerState: Record<string, boolean> = {};
         Object.keys(lulcCategories).forEach((key) => {
-          newLayerState[key] = newState;
+          onLayerToggle(key, newState);
         });
 
-        // Update state and notify parent for each layer
-        setVisibleLayers(newLayerState);
-        Object.keys(newLayerState).forEach((layerId) => {
-          onLayerToggle(layerId, newState);
-        });
-
-        // Update checkboxes and status indicators to reflect new state
         const checkboxes = controlDiv.querySelectorAll(
           'input[type="checkbox"]'
         );
         checkboxes.forEach((checkbox) => {
           const checkboxEl = checkbox as HTMLInputElement;
           checkboxEl.checked = newState;
-
-          // Update status indicator for this checkbox
           const layerId = checkboxEl.id.replace("lulc-layer-", "");
           const statusIndicator = document.getElementById(
             `lulc-status-${layerId}`
@@ -1577,34 +1404,28 @@ const LulcLayerControl: React.FC<LulcLayerControlProps> = ({
               : "#ccc";
           }
         });
-
-        // Trigger a map update
-        setTimeout(() => {
-          map.invalidateSize();
-        }, 50);
       });
     }
 
     return () => {
       map.removeControl(control);
     };
-  }, [map, thematicData, visibleLayers, onLayerToggle]);
+  }, [map, thematicData, onLayerToggle, visibleLayers]);
 
   return null;
 };
 
-// Custom Legend Control Component
-interface LegendControlProps {
-  thematicData: ThematicData | null;
+/* --------------------- Legend Control --------------------- */
+const LegendControl = ({
+  thematicData,
+  visibleLayers,
+}: {
+  thematicData: ThematicDataV2 | null;
   visibleLayers?: Record<string, boolean>;
-}
-
-// Custom Legend Component using CSS and DOM directly
-const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
+}) => {
   const map = useMap();
 
   useEffect(() => {
-    // Create a legend div with improved styling
     const legendDiv = L.DomUtil.create("div", "info legend");
     legendDiv.style.backgroundColor = "white";
     legendDiv.style.padding = "12px";
@@ -1614,7 +1435,6 @@ const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
     legendDiv.style.overflowY = "auto";
     legendDiv.style.boxShadow = "0 0 10px rgba(0,0,0,0.2)";
 
-    // Prevent map events from propagating through the control
     L.DomEvent.disableClickPropagation(legendDiv);
     L.DomEvent.disableScrollPropagation(legendDiv);
 
@@ -1622,45 +1442,30 @@ const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
       '<strong style="font-size:14px;">LULC Categories</strong><hr style="margin:8px 0;border:none;border-top:1px solid #ccc;">',
     ];
 
-    // Using the globally defined categoryGroups for consistency
-
-    // If we have thematic data, find which categories are present
     const presentLandUseTypes = new Set<string>();
 
     if (thematicData) {
-      Object.values(thematicData).forEach((lValues) => {
-        if (hasNonZeroLValues(lValues)) {
-          // Get all land use types with non-zero values in this area
-          Object.entries(lValues).forEach(([key, value]) => {
-            const numValue =
-              typeof value === "number"
-                ? value
-                : parseFloat(String(value).trim() || "0");
-            // Only include if value is > 0 and the layer is visible (if visibleLayers is provided)
-            if (numValue > 0 && (!visibleLayers || visibleLayers[key])) {
-              presentLandUseTypes.add(key);
-            }
-          });
-        }
+      Object.values(thematicData).forEach((area) => {
+        if (!area || !hasNonZeroLValues(area.values)) return;
+        Object.entries(area.values).forEach(([key, value]) => {
+          const num = typeof value === "number" ? value : cleanLulcValue(value);
+          if (num > 0 && (!visibleLayers || visibleLayers[key])) {
+            presentLandUseTypes.add(key);
+          }
+        });
       });
     }
 
     const showAllCategories = presentLandUseTypes.size === 0;
 
-    // Add legend items grouped by category
     Object.entries(categoryGroups).forEach(([groupName, layerIds]) => {
-      // Check if any layer in this group is present in the data
       const presentLayersInGroup = layerIds.filter(
-        (id) => presentLandUseTypes.has(id) || showAllCategories
+        (id) => presentLandUseTypes.has(id as string) || showAllCategories
       );
-
       if (presentLayersInGroup.length > 0) {
-        // Add a group header
         labels.push(
           `<div style="font-weight:bold;margin-top:8px;margin-bottom:5px;">${groupName}</div>`
         );
-
-        // Add the layers in this group
         presentLayersInGroup.forEach((layerId) => {
           const category =
             lulcCategories[layerId as keyof typeof lulcCategories];
@@ -1676,7 +1481,6 @@ const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
 
     legendDiv.innerHTML = labels.join("");
 
-    // Create a custom control and add it to the map
     const CustomControl = L.Control.extend({
       options: {
         position: "bottomright",
@@ -1689,7 +1493,6 @@ const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
     const customControl = new CustomControl();
     customControl.addTo(map);
 
-    // Clean up
     return () => {
       map.removeControl(customControl);
     };
@@ -1698,17 +1501,84 @@ const LegendControl = ({ thematicData, visibleLayers }: LegendControlProps) => {
   return null;
 };
 
+/* --------------------- Popup builder (top 5 classes) --------------------- */
+function buildPopupContent(
+  areaData?: AreaThematic,
+  selectedDistrictName?: string
+) {
+  const div = document.createElement("div");
+  div.style.fontSize = "13px";
+  const header = document.createElement("div");
+  header.innerHTML = `<strong>${
+    selectedDistrictName ?? areaData?.name ?? "Area"
+  }</strong>`;
+  header.style.marginBottom = "6px";
+  div.appendChild(header);
+
+  if (!areaData) {
+    div.innerHTML += "<div>No LULC data available</div>";
+    return div;
+  }
+
+  const total =
+    areaData.totalarea ??
+    Object.values(areaData.values).reduce(
+      (s, n) => s + (typeof n === "number" ? n : cleanLulcValue(n)),
+      0
+    );
+
+  const rows = Object.entries(areaData.values)
+    .map(([k, v]) => ({
+      key: k,
+      val: typeof v === "number" ? v : cleanLulcValue(v),
+      name: lulcCategories[k as keyof typeof lulcCategories]?.name ?? k,
+    }))
+    .filter((r) => r.val > 0)
+    .sort((a, b) => b.val - a.val)
+    .slice(0, 5);
+
+  if (rows.length === 0) {
+    div.innerHTML += "<div>No non-zero LULC classes</div>";
+    return div;
+  }
+
+  const table = document.createElement("table");
+  table.style.borderCollapse = "collapse";
+  table.style.width = "100%";
+
+  rows.forEach((r) => {
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid #eee";
+    tr.innerHTML = `
+      <td style="padding:4px 6px; vertical-align:middle; width:18px;">
+        <span style="display:inline-block;width:14px;height:14px;background:${
+          lulcCategories[r.key as keyof typeof lulcCategories]?.color
+        };border:1px solid #888;"></span>
+      </td>
+      <td style="padding:4px 6px;">${r.name}</td>
+      <td style="padding:4px 6px;text-align:right;"><strong>${
+        total > 0 ? ((r.val / total) * 100).toFixed(2) : "0.00"
+      }%</strong></td>
+    `;
+    table.appendChild(tr);
+  });
+
+  div.appendChild(table);
+  return div;
+}
+
+/* --------------------- Main React Component --------------------- */
+
 const LeafletBhuvanMap: React.FC = () => {
   const [selectedDistrict, setSelectedDistrict] = useState<District | null>(
     null
   );
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
-  const [thematicData, setThematicData] = useState<ThematicData | null>(null);
+  const [thematicData, setThematicData] = useState<ThematicDataV2 | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [layerUpdateTrigger, setLayerUpdateTrigger] = useState<number>(0); // Add a state to force rerenders
+  const [layerUpdateTrigger, setLayerUpdateTrigger] = useState<number>(0);
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>(
     () => {
-      // Initialize all layers as visible by default
       const initialState: Record<string, boolean> = {};
       Object.keys(lulcCategories).forEach((key) => {
         initialState[key] = true;
@@ -1716,6 +1586,12 @@ const LeafletBhuvanMap: React.FC = () => {
       return initialState;
     }
   );
+
+  // Display mode and selected class
+  const [displayMode, setDisplayMode] = useState<"dominant" | "byClass">(
+    "dominant"
+  );
+  const [selectedClass, setSelectedClass] = useState<string>("l04");
 
   const defaultCenter: LatLngExpression = [20.5937, 78.9629];
   const zoomLevel = 6;
@@ -1734,20 +1610,26 @@ const LeafletBhuvanMap: React.FC = () => {
     }
 
     async function fetchData() {
-      if (!selectedDistrict) {
-        setGeoJsonData(null);
-        setThematicData(null);
-        return;
-      }
-
       setIsLoading(true);
       try {
-        const [geoJson, themeData] = await Promise.all([
+        const [geoJson, themeRaw] = await Promise.all([
           fetchDistrictGeoJSON(selectedDistrict.code, selectedDistrict.name),
           fetchThematicData(selectedDistrict.code),
         ]);
+
+        // Remap single-area theme response to selected district code if needed
+        let mappedTheme = themeRaw;
+        if (mappedTheme && Object.keys(mappedTheme).length === 1) {
+          const onlyKey = Object.keys(mappedTheme)[0];
+          if (onlyKey !== selectedDistrict.code) {
+            mappedTheme = {
+              [selectedDistrict.code]: mappedTheme[onlyKey],
+            };
+          }
+        }
+
         setGeoJsonData(geoJson);
-        setThematicData(themeData);
+        setThematicData(mappedTheme);
       } catch (error) {
         console.error("Failed to fetch data", error);
         setGeoJsonData(null);
@@ -1759,27 +1641,18 @@ const LeafletBhuvanMap: React.FC = () => {
     fetchData();
   }, [selectedDistrict]);
 
-  // Debug effect to log GeoJSON data
+  // debug
   useEffect(() => {
     if (geoJsonData) {
       console.log("GeoJSON data loaded:", geoJsonData);
     }
   }, [geoJsonData]);
 
-  // Handle layer visibility toggle
   const handleLayerToggle = useCallback((layerId: string, visible: boolean) => {
-    console.log(
-      `Layer ${layerId} toggled to ${visible ? "visible" : "hidden"}`
-    );
-
     setVisibleLayers((prev) => {
       const newState = { ...prev, [layerId]: visible };
-      console.log("New visibility state:", newState);
       return newState;
     });
-
-    // Force a re-render of the GeoJSON by incrementing the trigger
-    // This is crucial to make the styleFeature function run again with the updated visibility
     setLayerUpdateTrigger((prev) => prev + 1);
   }, []);
 
@@ -1799,6 +1672,8 @@ const LeafletBhuvanMap: React.FC = () => {
           borderBottom: "1px solid #ddd",
           display: "flex",
           alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
         }}
       >
         <label
@@ -1825,6 +1700,7 @@ const LeafletBhuvanMap: React.FC = () => {
         >
           <option value="">-- Select District --</option>
           {districts
+            .slice()
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((d: District) => (
               <option key={d.code} value={d.code}>
@@ -1836,7 +1712,7 @@ const LeafletBhuvanMap: React.FC = () => {
         {selectedDistrict && (
           <div
             style={{
-              marginLeft: "20px",
+              marginLeft: "6px",
               fontSize: "14px",
               display: "flex",
               alignItems: "center",
@@ -1856,7 +1732,6 @@ const LeafletBhuvanMap: React.FC = () => {
           </div>
         )}
 
-        {/* Show loading indicator next to the district info */}
         {isLoading && (
           <div
             style={{
@@ -1865,7 +1740,7 @@ const LeafletBhuvanMap: React.FC = () => {
               alignItems: "center",
             }}
           >
-            <div className="small-spinner"></div>
+            <div className="small-spinner" />
             <span
               style={{
                 marginLeft: "8px",
@@ -1877,6 +1752,40 @@ const LeafletBhuvanMap: React.FC = () => {
             </span>
           </div>
         )}
+
+        {/* Display mode controls */}
+        <div
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <label style={{ fontWeight: 600 }}>Display:</label>
+          <select
+            value={displayMode}
+            onChange={(e) => setDisplayMode(e.target.value as any)}
+            style={{ padding: "6px", borderRadius: 4 }}
+          >
+            <option value="dominant">Dominant class</option>
+            <option value="byClass">By class %</option>
+          </select>
+
+          {displayMode === "byClass" && (
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              style={{ padding: "6px", borderRadius: 4 }}
+            >
+              {Object.entries(lulcCategories).map(([code, info]) => (
+                <option key={code} value={code}>
+                  {`${info.name} (${code})`}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       <div
@@ -1886,7 +1795,6 @@ const LeafletBhuvanMap: React.FC = () => {
           position: "relative",
         }}
       >
-        {/* Full-overlay loading spinner */}
         {isLoading && (
           <div className="loading-overlay">
             <div className="loading-spinner">
@@ -1899,47 +1807,32 @@ const LeafletBhuvanMap: React.FC = () => {
         <MapContainer
           center={defaultCenter}
           zoom={zoomLevel}
-          style={{
-            height: "100%",
-            width: "100%",
-            border: "1px solid #ccc",
-          }}
+          style={{ height: "100%", width: "100%", border: "1px solid #ccc" }}
         >
-          <MapViewReset
-            center={
-              selectedDistrict &&
-              geoJsonData &&
-              geoJsonData.features?.[0]?.geometry?.coordinates
-                ? [
-                    geoJsonData.features[0].geometry.coordinates[0][0][1], // latitude
-                    geoJsonData.features[0].geometry.coordinates[0][0][0], // longitude
-                  ]
-                : defaultCenter
-            }
-            zoom={selectedDistrict ? 9 : zoomLevel}
-          />
           <TileLayer
             attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+
           {geoJsonData && (
             <GeoJSON
               key={`geojson-${
                 selectedDistrict?.code || "none"
-              }-${layerUpdateTrigger}`}
+              }-${layerUpdateTrigger}-${displayMode}-${selectedClass}`}
               data={geoJsonData}
               style={(feature) =>
                 styleFeature(
                   feature,
                   thematicData,
                   visibleLayers,
-                  selectedDistrict
+                  selectedDistrict,
+                  displayMode,
+                  selectedClass
                 )
               }
               onEachFeature={(feature, layer) => {
                 try {
-                  // Add popup with feature information if available
-                  const props = feature.properties;
+                  const props = feature.properties ?? {};
                   const name =
                     props?.name ||
                     props?.district_name ||
@@ -1947,79 +1840,31 @@ const LeafletBhuvanMap: React.FC = () => {
                     selectedDistrict?.name ||
                     "Unknown";
 
-                  // Create a more informative popup
-                  const popupContent = document.createElement("div");
-                  popupContent.style.fontSize = "14px";
+                  const areaId =
+                    props?.district_code ||
+                    props?.code ||
+                    props?.id ||
+                    selectedDistrict?.code;
+                  const areaThematic = thematicData
+                    ? thematicData[areaId] ??
+                      (Object.keys(thematicData).length === 1
+                        ? thematicData[Object.keys(thematicData)[0]]
+                        : undefined)
+                    : undefined;
 
-                  // Add district name
-                  const header = document.createElement("h4");
-                  header.style.margin = "0 0 8px 0";
-                  header.textContent = name;
-                  popupContent.appendChild(header);
-
-                  // Add dominant land use if available
-                  if (thematicData) {
-                    const areaId =
-                      props?.id ||
-                      props?.osm_id ||
-                      props?.code ||
-                      props?.districtCode ||
-                      props?.district_code;
-
-                    if (areaId && thematicData[areaId]) {
-                      const lValues = thematicData[areaId];
-                      if (hasNonZeroLValues(lValues)) {
-                        const dominantType = findDominantLandUseType(
-                          lValues,
-                          visibleLayers
-                        );
-
-                        if (dominantType) {
-                          const landUseType =
-                            lulcCategories[
-                              dominantType as keyof typeof lulcCategories
-                            ];
-
-                          // Display dominant land use with color
-                          const landUseInfo = document.createElement("div");
-                          landUseInfo.style.marginTop = "5px";
-                          landUseInfo.innerHTML = `
-                          <div>Dominant land use: 
-                            <span style="display:inline-block;width:12px;height:12px;background-color:${landUseType.color};margin-right:5px;border:1px solid #888;"></span>
-                            <b>${landUseType.name}</b>
-                          </div>
-                        `;
-                          popupContent.appendChild(landUseInfo);
-                        } else {
-                          // No visible layers message
-                          const noVisibleInfo = document.createElement("div");
-                          noVisibleInfo.style.marginTop = "5px";
-                          noVisibleInfo.innerHTML = `<div><i>No visible land use layers selected</i></div>`;
-                          popupContent.appendChild(noVisibleInfo);
-                        }
-                      }
-                    }
-                  }
-
-                  // Bind popup with the rich content
+                  const popupContent = buildPopupContent(areaThematic, name);
                   layer.bindPopup(popupContent);
 
-                  // Also add a tooltip for quick hover info
                   layer.bindTooltip(name, {
                     permanent: false,
                     direction: "center",
                     className: "district-tooltip",
                   });
 
-                  // Add events for hover highlight
                   layer.on({
                     mouseover: (e) => {
                       const l = e.target;
-                      l.setStyle({
-                        weight: 4,
-                        opacity: 1,
-                        dashArray: "",
-                      });
+                      l.setStyle({ weight: 4, opacity: 1, dashArray: "" });
                       l.bringToFront();
                     },
                     mouseout: (e) => {
@@ -2029,7 +1874,9 @@ const LeafletBhuvanMap: React.FC = () => {
                           feature,
                           thematicData,
                           visibleLayers,
-                          selectedDistrict
+                          selectedDistrict,
+                          displayMode,
+                          selectedClass
                         )
                       );
                     },
@@ -2043,19 +1890,22 @@ const LeafletBhuvanMap: React.FC = () => {
               }}
             />
           )}
-          {/* Add the legend if we have thematic data */}
+
+          {/* Legend and Controls */}
           {thematicData && (
-            <>
-              <LegendControl
-                thematicData={thematicData}
-                visibleLayers={visibleLayers}
-              />
-              <LulcLayerControl
-                thematicData={thematicData}
-                onLayerToggle={handleLayerToggle}
-              />
-            </>
+            <LegendControl
+              thematicData={thematicData}
+              visibleLayers={visibleLayers}
+            />
           )}
+          {thematicData && (
+            <LulcLayerControl
+              thematicData={thematicData}
+              onLayerToggle={handleLayerToggle}
+              visibleLayers={visibleLayers}
+            />
+          )}
+
           {geoJsonData && <FitBoundsToData geoJsonData={geoJsonData} />}
         </MapContainer>
       </div>
