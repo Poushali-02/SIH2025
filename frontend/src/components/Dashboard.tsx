@@ -24,6 +24,7 @@ const Dashboard: React.FC = () => {
   const [ocrText, setOcrText] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [predictionMessage, setPredictionMessage] = useState<string>("");
   const [claimType, setClaimType] = useState("IFR");
   const [address, setAddress] = useState("");
   const [predictions, setPredictions] = useState<PredictionResponse | null>(
@@ -151,18 +152,20 @@ const Dashboard: React.FC = () => {
 
   const handlePrediction = async () => {
     if (!address.trim()) {
-      setMessage("⚠️ Please enter an address for prediction!");
+      setPredictionMessage("⚠️ Please enter an address for prediction!");
       return;
     }
 
     setPredictionLoading(true);
+    setPredictionMessage("");
     try {
       const result = await getPrediction(address);
       setPredictions(result);
-      setMessage("✅ Prediction completed!");
+      setPredictionMessage("✅ Prediction completed!");
     } catch (error) {
       console.error("Prediction error:", error);
-      setMessage("❌ Prediction failed. Please try again.");
+      setPredictions(null); // Clear previous predictions on error
+      setPredictionMessage("❌ Prediction failed. Please try again.");
     } finally {
       setPredictionLoading(false);
     }
@@ -399,6 +402,9 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
+              {predictionMessage && (
+                <p className="mt-2 text-sm text-gray-600">{predictionMessage}</p>
+              )}
               <div className="space-y-3">
                 {predictions ? (
                   <>
