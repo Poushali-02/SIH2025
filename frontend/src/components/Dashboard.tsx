@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import axios from "axios";
 import {
@@ -12,7 +13,10 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getPrediction, type PredictionResponse } from "../services/predictionService";
+import {
+  getPrediction,
+  type PredictionResponse,
+} from "../services/predictionService";
 import LeafletBhuvanMap from "./map";
 
 const Dashboard: React.FC = () => {
@@ -22,7 +26,9 @@ const Dashboard: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [claimType, setClaimType] = useState("IFR");
   const [address, setAddress] = useState("");
-  const [predictions, setPredictions] = useState<PredictionResponse | null>(null);
+  const [predictions, setPredictions] = useState<PredictionResponse | null>(
+    null
+  );
   const [predictionLoading, setPredictionLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -107,10 +113,17 @@ const Dashboard: React.FC = () => {
     setMessage("🔄 Processing OCR... Please wait.");
 
     try {
-      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
-      
+      console.log(
+        "Uploading file:",
+        file.name,
+        "Size:",
+        file.size,
+        "Type:",
+        file.type
+      );
+
       const res = await axios.post("http://localhost:5000/ocr", formData, {
-        timeout: 30000, 
+        timeout: 30000,
       });
 
       console.log("Upload response:", res.data);
@@ -121,7 +134,9 @@ const Dashboard: React.FC = () => {
       if (err.response) {
         console.error("Response status:", err.response.status);
         console.error("Response data:", err.response.data);
-        setMessage(`❌ ${err.response.data?.error || "File upload or OCR failed."}`);
+        setMessage(
+          `❌ ${err.response.data?.error || "File upload or OCR failed."}`
+        );
       } else if (err.request) {
         console.error("No response received:", err.request);
         setMessage("❌ No response from server. Check if backend is running.");
@@ -361,7 +376,11 @@ const Dashboard: React.FC = () => {
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !predictionLoading && address.trim()) {
+                      if (
+                        e.key === "Enter" &&
+                        !predictionLoading &&
+                        address.trim()
+                      ) {
                         e.preventDefault();
                         handlePrediction();
                       }
@@ -384,72 +403,107 @@ const Dashboard: React.FC = () => {
                 {predictions ? (
                   <>
                     {/* PM-Kisan Eligibility */}
-                    <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                      predictions.predicted_class_pmk === 1 
-                        ? "bg-green-50" 
-                        : "bg-red-50"
-                    }`}>
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-lg ${
+                        predictions.predicted_class_pmk === 1
+                          ? "bg-green-50"
+                          : "bg-red-50"
+                      }`}
+                    >
                       {predictions.predicted_class_pmk === 1 ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       ) : (
                         <XCircle className="h-5 w-5 text-red-500" />
                       )}
-                      <span className={
-                        predictions.predicted_class_pmk === 1 
-                          ? "text-green-800" 
-                          : "text-red-800"
-                      }>
-                        PM-Kisan Eligibility: {predictions.predicted_class_pmk === 1 ? "Eligible" : "Not Eligible"} 
-                        ({(predictions.predicted_probability_pmk * 100).toFixed(1)}%)
+                      <span
+                        className={
+                          predictions.predicted_class_pmk === 1
+                            ? "text-green-800"
+                            : "text-red-800"
+                        }
+                      >
+                        PM-Kisan Eligibility:{" "}
+                        {predictions.predicted_class_pmk === 1
+                          ? "Eligible"
+                          : "Not Eligible"}
+                        (
+                        {(predictions.predicted_probability_pmk * 100).toFixed(
+                          1
+                        )}
+                        %)
                       </span>
                     </div>
 
                     {/* Jal Jeevan Mission Priority */}
-                    <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                      predictions.predicted_class_pmjvm === 1 
-                        ? "bg-green-50" 
-                        : "bg-yellow-50"
-                    }`}>
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-lg ${
+                        predictions.predicted_class_pmjvm === 1
+                          ? "bg-green-50"
+                          : "bg-yellow-50"
+                      }`}
+                    >
                       {predictions.predicted_class_pmjvm === 1 ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       ) : (
                         <AlertTriangle className="h-5 w-5 text-yellow-500" />
                       )}
-                      <span className={
-                        predictions.predicted_class_pmjvm === 1 
-                          ? "text-green-800" 
-                          : "text-yellow-800"
-                      }>
-                        Priority for Jal Jeevan Mission: {predictions.predicted_class_pmjvm === 1 ? "High Priority" : "Low Priority"} 
-                        ({(predictions.predicted_probability_pmjvm * 100).toFixed(1)}%)
+                      <span
+                        className={
+                          predictions.predicted_class_pmjvm === 1
+                            ? "text-green-800"
+                            : "text-yellow-800"
+                        }
+                      >
+                        Priority for Jal Jeevan Mission:{" "}
+                        {predictions.predicted_class_pmjvm === 1
+                          ? "High Priority"
+                          : "Low Priority"}
+                        (
+                        {(
+                          predictions.predicted_probability_pmjvm * 100
+                        ).toFixed(1)}
+                        %)
                       </span>
                     </div>
 
                     {/* JJM Eligibility */}
-                    <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                      predictions.predicted_class_jjm === 1 
-                        ? "bg-green-50" 
-                        : "bg-red-50"
-                    }`}>
+                    <div
+                      className={`flex items-center gap-3 p-3 rounded-lg ${
+                        predictions.predicted_class_jjm === 1
+                          ? "bg-green-50"
+                          : "bg-red-50"
+                      }`}
+                    >
                       {predictions.predicted_class_jjm === 1 ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       ) : (
                         <XCircle className="h-5 w-5 text-red-500" />
                       )}
-                      <span className={
-                        predictions.predicted_class_jjm === 1 
-                          ? "text-green-800" 
-                          : "text-red-800"
-                      }>
-                        JJM Eligibility: {predictions.predicted_class_jjm === 1 ? "Eligible" : "Not Eligible"} 
-                        ({(predictions.predicted_probability_jjm * 100).toFixed(1)}%)
+                      <span
+                        className={
+                          predictions.predicted_class_jjm === 1
+                            ? "text-green-800"
+                            : "text-red-800"
+                        }
+                      >
+                        JJM Eligibility:{" "}
+                        {predictions.predicted_class_jjm === 1
+                          ? "Eligible"
+                          : "Not Eligible"}
+                        (
+                        {(predictions.predicted_probability_jjm * 100).toFixed(
+                          1
+                        )}
+                        %)
                       </span>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <span className="text-gray-600">Enter an address above to get AI recommendations</span>
+                      <span className="text-gray-600">
+                        Enter an address above to get AI recommendations
+                      </span>
                     </div>
                   </>
                 )}
@@ -463,7 +517,7 @@ const Dashboard: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">Map Viewer</h2>
           </div>
-          <div className="rounded-lg" style={{ height: "500px", width: "100%" }}>
+          <div className="rounded-lg" style={{ width: "100%" }}>
             {/* Map integration */}
             <LeafletBhuvanMap />
           </div>

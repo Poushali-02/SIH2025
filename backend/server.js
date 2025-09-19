@@ -6,11 +6,15 @@ import path from "path";
 import dotenv from "dotenv";
 import axios from "axios";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import morgan from "morgan";
 
-dotenv.config({ path: '../.env' });
+// ------------------- Middleware -------------------
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
+app.use(morgan("dev")); // Logging middleware
 
 // ------------------- Storage Config -------------------
 const storage = multer.diskStorage({
@@ -24,7 +28,12 @@ const storage = multer.diskStorage({
 
 // ------------------- File Filter -------------------
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "application/pdf"];
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "application/pdf",
+  ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -40,7 +49,11 @@ const upload = multer({
 });
 
 // ------------------- Gemini Setup -------------------
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error("❌ GEMINI_API_KEY is not set in environment variables.");
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // ------------------- OCR Route -------------------
 app.post("/ocr", upload.single("file"), async (req, res) => {
@@ -53,10 +66,14 @@ app.post("/ocr", upload.single("file"), async (req, res) => {
     const fileExt = path.extname(req.file.originalname).toLowerCase();
 
     // Select model (flash = faster for images, pro = better for PDFs/text)
-    const model =
-      fileExt === ".pdf"
-        ? genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
-        : genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // const model =
+    //   fileExt === ".pdf"
+    //     ? genAI.getGenerativeModel({ model: "gemini-2.5-pro" })
+    //     : genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+    });
 
     // Convert file → Base64
     const fileData = fs.readFileSync(filePath).toString("base64");
@@ -107,39 +124,47 @@ app.use((err, req, res, next) => {
 // ------------------- LULC API Proxy -------------------
 app.get("/api/lulc", async (req, res) => {
   try {
-    const { distcode, statcode, year = '1112', token = '' } = req.query;
-    
+    const {
+      distcode,
+      statcode,
+      year = "1112",
+      token = "4f59d31513185ea56dde302192f911e16ca6debe",
+    } = req.query;
+
     if (!distcode && !statcode) {
-      return res.status(400).json({ error: "Either district code or state code is required" });
+      return res
+        .status(400)
+        .json({ error: "Either district code or state code is required" });
     }
-    
+
     console.log(`Proxying request to Bhuvan API with params:`, req.query);
-    
+
     // Use the correct Bhuvan API URL as per documentation
-    const apiUrl = 'https://bhuvan-app1.nrsc.gov.in/api/lulc/curljson.php';
-    
+    const apiUrl = "https://bhuvan-app1.nrsc.gov.in/api/lulc/curljson.php";
+
     // Build query parameters
     const queryParams = new URLSearchParams();
-    if (distcode) queryParams.append('distcode', distcode);
-    if (statcode) queryParams.append('statcode', statcode);
-    if (year) queryParams.append('year', year);
-    if (token) queryParams.append('token', token);
-    
+    if (distcode) queryParams.append("distcode", distcode);
+    if (statcode) queryParams.append("statcode", statcode);
+    if (year) queryParams.append("year", year);
+    if (token) queryParams.append("token", token);
+
     const fullUrl = `${apiUrl}?${queryParams.toString()}`;
     console.log(`Making request to: ${fullUrl}`);
-    
+
     // Proxy the request to the Bhuvan API with correct headers
     const response = await axios.get(fullUrl, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': 'https://bhuvan-app1.nrsc.gov.in/',
-        'Origin': 'https://bhuvan-app1.nrsc.gov.in'
-      }
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        Referer: "https://bhuvan-app1.nrsc.gov.in/",
+        Origin: "https://bhuvan-app1.nrsc.gov.in",
+      },
     });
-    
-    console.log('Bhuvan API response status:', response.status);
+
+    console.log("Bhuvan API response status:", response.status);
     res.json(response.data);
   } catch (error) {
     console.error("Error fetching LULC data:", error.message);
@@ -147,14 +172,14 @@ app.get("/api/lulc", async (req, res) => {
       console.error("API error details:", {
         status: error.response.status,
         statusText: error.response.statusText,
-        data: error.response.data
+        data: error.response.data,
       });
     }
-    
-    res.status(500).json({ 
-      error: "Failed to fetch LULC data", 
+
+    res.status(500).json({
+      error: "Failed to fetch LULC data",
       message: error.message,
-      details: error.response ? error.response.data : null
+      details: error.response ? error.response.data : null,
     });
   }
 });
@@ -163,39 +188,41 @@ app.get("/api/lulc", async (req, res) => {
 app.get("/api/osm/search", async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     if (!q) {
       return res.status(400).json({ error: "Query parameter 'q' is required" });
     }
-    
+
     console.log(`Proxying request to OpenStreetMap API with query:`, q);
-    
-    const url = `https://nominatim.openstreetmap.org/search?format=geojson&polygon_geojson=1&q=${encodeURIComponent(q)}`;
-    
+
+    const url = `https://nominatim.openstreetmap.org/search?format=geojson&polygon_geojson=1&q=${encodeURIComponent(
+      q
+    )}`;
+
     // Add a delay to respect OpenStreetMap's usage policy (max 1 request per second)
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'FRAClaimsPortal/1.0',
-        'Accept': 'application/json'
-      }
+        "User-Agent": "FRAClaimsPortal/1.0",
+        Accept: "application/json",
+      },
     });
-    
-    console.log('OpenStreetMap API response status:', response.status);
+
+    console.log("OpenStreetMap API response status:", response.status);
     res.json(response.data);
   } catch (error) {
     console.error("Error fetching OpenStreetMap data:", error.message);
     if (error.response) {
       console.error("API error details:", {
         status: error.response.status,
-        statusText: error.response.statusText
+        statusText: error.response.statusText,
       });
     }
-    
-    res.status(500).json({ 
-      error: "Failed to fetch OpenStreetMap data", 
-      message: error.message
+
+    res.status(500).json({
+      error: "Failed to fetch OpenStreetMap data",
+      message: error.message,
     });
   }
 });
