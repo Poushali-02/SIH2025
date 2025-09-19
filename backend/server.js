@@ -230,4 +230,5 @@ app.get("/api/osm/search", async (req, res) => {
 // ------------------- Start Server -------------------
 app.listen(5000, () => {
   console.log("🚀 Server running at http://localhost:5000");
+  console.log("MongoDB connected successfully");
 });
